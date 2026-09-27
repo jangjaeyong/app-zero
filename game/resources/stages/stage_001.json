@@ -1,0 +1,162 @@
+{
+  "id": "STAGE_001",
+  "chapter": "WORKSHOP",
+  "index": 1,
+  "title": "MK-01 CONTAINMENT UNIT",
+  "device_model": "res://assets/models/device_001.glb",
+  "static_nodes": [
+    "Pedestal",
+    "PedestalGlow",
+    "PedestalTop",
+    "Body"
+  ],
+  "win_condition": "all_parts_removed",
+  "par_moves": 8,
+  "rewards": {
+    "coins": 150,
+    "parts": 3,
+    "rare_parts": 1
+  },
+  "parts": [
+    {
+      "id": "LeftPanel",
+      "label": "좌측 패널",
+      "interaction": "pull",
+      "blocked_by": [],
+      "remove_direction": [
+        -1,
+        0,
+        0
+      ],
+      "remove_distance": 0.34,
+      "resist_distance": 0.045,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "RightPanel",
+      "label": "우측 패널",
+      "interaction": "pull",
+      "blocked_by": [],
+      "remove_direction": [
+        1,
+        0,
+        0
+      ],
+      "remove_distance": 0.34,
+      "resist_distance": 0.045,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "PowerCell",
+      "label": "파워 셀",
+      "interaction": "pull",
+      "blocked_by": [
+        "LeftPanel"
+      ],
+      "remove_direction": [
+        -1,
+        0,
+        0
+      ],
+      "remove_distance": 0.4,
+      "resist_distance": 0.03,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "CoolingTube",
+      "label": "냉각 튜브",
+      "interaction": "pull",
+      "blocked_by": [
+        "PowerCell",
+        "RightPanel"
+      ],
+      "remove_direction": [
+        0.15,
+        0.1,
+        1
+      ],
+      "remove_distance": 0.38,
+      "resist_distance": 0.035,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "LockRing",
+      "label": "잠금 링",
+      "interaction": "rotate",
+      "blocked_by": [
+        "CoolingTube"
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "rotation_target": 150.0,
+      "resist_angle": 9.0,
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.3,
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "TopCover",
+      "label": "상단 커버",
+      "interaction": "pull",
+      "blocked_by": [
+        "LockRing"
+      ],
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.4,
+      "resist_distance": 0.04,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "GearLock",
+      "label": "기어 락",
+      "interaction": "rotate",
+      "blocked_by": [
+        "TopCover"
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "rotation_target": -120.0,
+      "resist_angle": 7.0,
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.28,
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "EnergyCore",
+      "label": "에너지 코어",
+      "interaction": "hold",
+      "blocked_by": [
+        "GearLock"
+      ],
+      "hold_seconds": 1.8,
+      "is_core": true,
+      "sfx_engage": "core_hum",
+      "sfx_release": "stable"
+    }
+  ]
+}
