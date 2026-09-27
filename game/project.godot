@@ -21,6 +21,7 @@ Sfx="*res://scripts/audio/sfx.gd"
 Haptics="*res://scripts/core/haptics.gd"
 DebugFlags="*res://scripts/core/debug_flags.gd"
 Progress="*res://scripts/core/progress_store.gd"
+Settings="*res://scripts/core/settings_store.gd"
 Session="*res://scripts/core/session.gd"
 DevTools="*res://scripts/core/dev_harness.gd"
 

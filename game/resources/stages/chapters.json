@@ -19,9 +19,12 @@
       "index": 2,
       "title": "REACTOR ROOM",
       "subtitle": "THERMAL CONTAINMENT",
-      "description": "열이 오르는 장치들. 순서를 틀리면 시간이 줄어든다.",
+      "description": "열이 오르는 장치들. 시계가 돌고, 틀리면 시간이 깎인다.",
       "accent": "#FF7A2E",
-      "stages": []
+      "stages": [
+        "res://resources/stages/stage_005.json",
+        "res://resources/stages/stage_006.json"
+      ]
     },
     {
       "id": "ARCHIVE",

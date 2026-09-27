@@ -12,6 +12,15 @@ var static_nodes: PackedStringArray = PackedStringArray()
 var par_moves: int = 0
 var rewards: Dictionary = {}
 
+## 모드 (기획서 14번). normal 은 시간이 없고, danger 는 제한 시간과
+## 시간 페널티가 있고, boss 는 거기에 배너와 더 센 규칙이 붙는다.
+enum Mode { NORMAL, DANGER, BOSS }
+const _MODES := {"normal": Mode.NORMAL, "danger": Mode.DANGER, "boss": Mode.BOSS}
+
+var mode: Mode = Mode.NORMAL
+var time_limit: float = 0.0          ## 초. 0 이면 제한 없음
+var time_penalty: float = 5.0        ## 틀린 시도 한 번에 깎이는 초
+
 ## 카메라 구도. 장치 크기가 제각각이라 스테이지가 직접 정한다.
 var cam_distance: float = 3.95
 var cam_pitch: float = 21.0
@@ -44,6 +53,9 @@ static func load_from(path: String) -> StageDef:
 		s.static_nodes.append(String(n))
 	s.par_moves = int(d.get("par_moves", 0))
 	s.rewards = d.get("rewards", {})
+	s.mode = _MODES.get(String(d.get("mode", "normal")).to_lower(), Mode.NORMAL)
+	s.time_limit = float(d.get("time_limit", 0.0))
+	s.time_penalty = float(d.get("time_penalty", 5.0))
 
 	var cam: Dictionary = d.get("camera", {})
 	s.cam_distance = float(cam.get("distance", s.cam_distance))
@@ -78,6 +90,15 @@ func _validate(path: String) -> void:
 	var cycle := _find_cycle()
 	if not cycle.is_empty():
 		push_error("[StageDef] 의존 관계에 순환이 있다: %s (%s)" % [" -> ".join(cycle), path])
+
+func is_timed() -> bool:
+	return time_limit > 0.0
+
+func mode_name() -> String:
+	match mode:
+		Mode.DANGER: return "DANGER"
+		Mode.BOSS: return "BOSS"
+	return "NORMAL"
 
 func _find_cycle() -> PackedStringArray:
 	var state: Dictionary = {}   # 0=미방문 1=방문중 2=완료

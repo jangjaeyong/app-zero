@@ -27,7 +27,7 @@ func _ready() -> void:
 
 func _validate_all() -> void:
 	await get_tree().process_frame
-	var problems := 0
+	var problems := _check_scripts()
 	var stages := 0
 	for chapter in Session.catalog.chapters:
 		for path in chapter.stages:
@@ -39,6 +39,25 @@ func _validate_all() -> void:
 	else:
 		print("ZERO_VALIDATE_FAIL  스테이지 %d개 · 문제 %d건" % [stages, problems])
 	get_tree().quit(0 if problems == 0 else 1)
+
+## 스테이지 데이터는 멀쩡한데 조작 스크립트가 컴파일이 안 되면
+## 게임 씬을 열 때까지 아무도 모른다. 실제로 한 번 당했다.
+## 여기서 한 번씩 만들어 본다 — 파싱 오류는 이 시점에 터진다.
+func _check_scripts() -> int:
+	var made: Array = [
+		PullInteraction.new(), SlideInteraction.new(), RotateInteraction.new(),
+		AlignInteraction.new(), PressInteraction.new(), RouteInteraction.new(),
+		SequenceInteraction.new(),
+	]
+	var missing := 0
+	for m in made:
+		if m == null:
+			missing += 1
+	if missing > 0:
+		print("  ✗ 조작 스크립트 %d개를 못 만들었다" % missing)
+	else:
+		print("  ✓ 조작 스크립트 %d종 컴파일 확인" % made.size())
+	return missing
 
 func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 	var fails: Array[String] = []
@@ -188,6 +207,12 @@ func _run(args: PackedStringArray) -> void:
 		if game != null:
 			game._debug_force_remove()
 		await _wait(0.45)
+	if args.has("--open-settings"):
+		var scene := get_tree().current_scene
+		if scene != null and scene.has_method("debug_open_settings"):
+			scene.debug_open_settings()
+			await _wait(0.6)
+
 	# 부품을 뺄 때마다 게이지가 내려간다. 캡처용 heat 는 다 뺀 뒤에 올려야 보인다.
 	var heat := float(_arg(args, "--heat", "0"))
 	if heat > 0.0 and game != null and game.has_method("debug_heat"):

@@ -36,9 +36,12 @@ func _build_path() -> void:
 	if pts.size() < 2:
 		push_error("[Route] %s 의 route_points 가 2개 미만이다" % part.def.id)
 		return
-	var basis := part.get_parent().global_transform
+	var rig := part.get_parent() as Node3D
+	if rig == null:
+		return
+	var to_world := rig.global_transform
 	for p in pts:
-		var w: Vector3 = basis * p
+		var w: Vector3 = to_world * p
 		_world.append(w)
 		_screen.append(ctx.camera.unproject_position(w))
 	_lengths.append(0.0)

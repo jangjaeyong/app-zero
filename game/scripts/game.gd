@@ -25,6 +25,8 @@ const TOOL_UNDO := 3                   ## 시안 기준. 무제한이면 고민�
 const TOOL_HINT := 3
 var _instability: Instability
 var _fx: DeviceFx
+var _time_left: float = 0.0
+var _failed: bool = false
 var _undo_left: int = TOOL_UNDO
 var _hint_left: int = TOOL_HINT
 
@@ -61,7 +63,10 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.name = "Hud"
 	add_child(hud)
+	_time_left = stage.time_limit
 	hud.setup_stage(stage)
+	if stage.is_timed():
+		hud.set_time_left(_time_left, false)
 	hud.set_progress(0, 0)
 	hud.set_tools(_undo_left, _hint_left, false)
 	hud.set_instability(0.0, Instability.Level.CALM)
@@ -69,11 +74,13 @@ func _ready() -> void:
 	hud.hint_pressed.connect(_on_hint)
 	hud.reset_pressed.connect(_restart)
 	hud.replay_pressed.connect(_restart)
+	hud.retry_pressed.connect(_restart)
 	hud.next_pressed.connect(func() -> void: Session.play_next())
 	hud.select_pressed.connect(func() -> void: Session.goto_select())
 	# 일시정지 중에는 3D 조작이 먹으면 안 된다.
 	hud.paused.connect(func() -> void: router.input_locked = true)
-	hud.resumed.connect(func() -> void: router.input_locked = not _clearing)
+	hud.resumed.connect(func() -> void:
+		router.input_locked = _clearing or _failed)
 
 	router = TouchRouter.new()
 	router.name = "TouchRouter"
@@ -134,6 +141,7 @@ func _core_id() -> String:
 	return ""
 
 func _process(delta: float) -> void:
+	_tick_clock(delta)
 	if _instability != null and not _clearing:
 		_instability.tick(delta)
 
@@ -149,14 +157,36 @@ func _process(delta: float) -> void:
 	if _fx != null and not _core_stable:
 		_fx.set_heat(_instability.value if _instability != null else 0.0)
 
-	# 위태로울 때는 장치 전체가 미세하게 떤다.
-	if _instability != null and not _clearing:
+	# 위태로울 때는 장치 전체가 미세하게 떤다. (설정에서 끌 수 있다)
+	if _instability != null and not _clearing and Settings.screen_shake:
 		var shake: float = maxf(0.0, _instability.value - Instability.WARN_AT) * 0.014
 		if shake > 0.0:
 			_rig.position = Vector3(randf_range(-shake, shake), 0.0,
 				randf_range(-shake, shake))
 		elif _rig.position != Vector3.ZERO:
 			_rig.position = Vector3.ZERO
+	elif _rig.position != Vector3.ZERO:
+		_rig.position = Vector3.ZERO
+
+## 위험·보스 모드의 시계. 노멀에는 제한이 없다 (기획서 13·14번).
+func _tick_clock(delta: float) -> void:
+	if not stage.is_timed() or _clearing or _failed:
+		return
+	if hud == null or hud.is_paused():
+		return
+	_time_left = maxf(0.0, _time_left - delta)
+	hud.set_time_left(_time_left, _time_left <= 20.0)
+	if _time_left <= 0.0:
+		_fail()
+
+func _fail() -> void:
+	if _failed:
+		return
+	_failed = true
+	router.input_locked = true
+	if _fx != null:
+		_fx.burst()
+	hud.show_fail()
 
 # --- 조작 결과 ----------------------------------------------------------
 
@@ -194,6 +224,12 @@ func _on_part_rejected(part: Part, blockers: PackedStringArray) -> void:
 	Haptics.bump()
 	if _instability != null:
 		_instability.fail(part.def.id)
+	if stage.is_timed() and not _failed:
+		_time_left = maxf(0.0, _time_left - stage.time_penalty)
+		hud.set_time_left(_time_left, true)
+		hud.flash_part_name("-%d초" % int(stage.time_penalty), UiStyle.DANGER)
+		if _time_left <= 0.0:
+			_fail()
 	for id in blockers:
 		var b: Part = _rig.get_part(id)
 		if b != null:

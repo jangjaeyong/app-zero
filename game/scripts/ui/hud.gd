@@ -13,6 +13,7 @@ signal next_pressed()
 signal replay_pressed()
 signal select_pressed()
 signal paused()
+signal retry_pressed()
 signal resumed()
 
 
@@ -36,6 +37,11 @@ var _clear_actions: HBoxContainer
 var _next_button: Button
 var _bottom_bar: HBoxContainer
 var _pause_layer: Control
+var _settings: SettingsPanel
+var _timer_label: Label
+var _timer_chip: PanelContainer
+var _mode_label: Label
+var _fail_layer: Control
 var _bar: InstabilityBar
 var _undo_left: int = 0
 var _hint_left: int = 0
@@ -45,7 +51,7 @@ func _ready() -> void:
 	layer = 10
 	_root = Control.new()
 	_root.name = "Root"
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
@@ -57,6 +63,7 @@ func _ready() -> void:
 	_build_tray()
 	_build_bottom()
 	_build_clear_overlay()
+	_build_fail()
 	_build_pause()
 
 # --- 상단 ---------------------------------------------------------------
@@ -84,6 +91,18 @@ func _build_top() -> void:
 	_dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UiStyle.anchor(_dots, 0.5, 0, 0.5, 0, -220, 126, 220, 150)
 	_root.add_child(_dots)
+
+	_timer_chip = UiStyle.chip("00:00", 28, UiStyle.DANGER, Color(UiStyle.DANGER, 0.7))
+	UiStyle.anchor(_timer_chip, 1, 0, 1, 0, -250, 48, -46, 112)
+	_timer_chip.visible = false
+	_root.add_child(_timer_chip)
+	_timer_label = _timer_chip.get_child(0)
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	_mode_label = UiStyle.label("", 18, UiStyle.DANGER, 6)
+	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	UiStyle.anchor(_mode_label, 1, 0, 1, 0, -250, 122, -50, 152)
+	_root.add_child(_mode_label)
 
 	var moves_chip := UiStyle.chip("MOVES  0", 24, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
 	UiStyle.anchor(moves_chip, 1, 0, 1, 0, -250, 48, -46, 110)
@@ -137,13 +156,13 @@ func _build_bottom() -> void:
 
 func _build_pause() -> void:
 	_pause_layer = Control.new()
-	_pause_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.visible = false
 	_root.add_child(_pause_layer)
 
 	var dim := ColorRect.new()
 	dim.color = Color(UiStyle.NAVY, 0.82)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# 뒤쪽 3D 조작이 새지 않게 여기서 입력을 먹는다.
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_layer.add_child(dim)
@@ -161,7 +180,7 @@ func _build_pause() -> void:
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 22)
-	UiStyle.anchor(box, 0, 0.44, 1, 0.44, 110, 0, -110, 460)
+	UiStyle.anchor(box, 0, 0.40, 1, 0.40, 110, 0, -110, 600)
 	_pause_layer.add_child(box)
 
 	var resume := UiStyle.button("계속하기", 34, UiStyle.AMBER, UiStyle.AMBER)
@@ -176,12 +195,21 @@ func _build_pause() -> void:
 		replay_pressed.emit())
 	box.add_child(again)
 
+	var opts := UiStyle.button("설정", 32, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
+	opts.custom_minimum_size = Vector2(0, 124)
+	opts.pressed.connect(func() -> void: _settings.open_panel())
+	box.add_child(opts)
+
 	var out := UiStyle.button("스테이지 선택", 32, UiStyle.WHITE, Color(UiStyle.CYAN, 0.6))
 	out.custom_minimum_size = Vector2(0, 124)
 	out.pressed.connect(func() -> void:
 		close_pause()
 		select_pressed.emit())
 	box.add_child(out)
+
+	_settings = SettingsPanel.new()
+	_settings.name = "Settings"
+	add_child(_settings)
 
 func open_pause() -> void:
 	if _pause_layer == null or _pause_layer.visible or _clear_layer.visible:
@@ -204,14 +232,14 @@ func is_paused() -> bool:
 
 func _build_clear_overlay() -> void:
 	_clear_layer = Control.new()
-	_clear_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_clear_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_clear_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clear_layer.visible = false
 	_root.add_child(_clear_layer)
 
 	_dim = ColorRect.new()
 	_dim.color = Color(UiStyle.NAVY, 0.0)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clear_layer.add_child(_dim)
 
@@ -321,10 +349,69 @@ func hide_clear() -> void:
 	_clear_box.modulate = Color(1, 1, 1, 0)
 	_clear_actions.modulate = Color(1, 1, 1, 0)
 
+# --- 실패 (위험/보스 모드) ---------------------------------------------
+
+func _build_fail() -> void:
+	_fail_layer = Control.new()
+	_fail_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fail_layer.visible = false
+	_root.add_child(_fail_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.12, 0.02, 0.02, 0.72)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_fail_layer.add_child(dim)
+
+	var title := UiStyle.label("CONTAINMENT FAILED", 52, UiStyle.DANGER, 10)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(title, 0, 0.36, 1, 0.36, 0, 0, 0, 80)
+	_fail_layer.add_child(title)
+
+	var sub := UiStyle.label("시간이 다 됐다", 26, Color(UiStyle.WHITE, 0.85), 4)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(sub, 0, 0.36, 1, 0.36, 0, 92, 0, 136)
+	_fail_layer.add_child(sub)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	UiStyle.anchor(row, 0, 1, 1, 1, 60, -176, -60, -50)
+	_fail_layer.add_child(row)
+
+	var again := UiStyle.button("다시", 34, UiStyle.AMBER, UiStyle.AMBER)
+	again.custom_minimum_size = Vector2(0, 118)
+	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	again.pressed.connect(func() -> void: retry_pressed.emit())
+	row.add_child(again)
+
+	var out := UiStyle.button("스테이지", 32, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
+	out.custom_minimum_size = Vector2(0, 118)
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	out.pressed.connect(func() -> void: select_pressed.emit())
+	row.add_child(out)
+
+func show_fail() -> void:
+	if _fail_layer == null or _fail_layer.visible:
+		return
+	if _bottom_bar != null:
+		_bottom_bar.visible = false
+	_fail_layer.visible = true
+	Sfx.play("overload", 0.0)
+	Haptics.bump()
+
+func is_failed() -> bool:
+	return _fail_layer != null and _fail_layer.visible
+
 # --- 갱신 ---------------------------------------------------------------
 
 func setup_stage(stage: StageDef) -> void:
 	_stage_label.text = "STAGE %02d" % stage.index
+	# 제한 시간이 있으면 MOVES 를 접고 그 자리에 시계를 띄운다.
+	# 위험 모드에서 플레이어가 봐야 할 숫자는 남은 시간이다.
+	var timed := stage.is_timed()
+	_timer_chip.visible = timed
+	_moves_label.get_parent().visible = not timed
+	_mode_label.text = stage.mode_name() if stage.mode != StageDef.Mode.NORMAL else ""
 	for c in _dots.get_children():
 		c.queue_free()
 	_dot_nodes.clear()
@@ -364,6 +451,14 @@ func set_tools(undo_left: int, hint_left: int, undo_available: bool) -> void:
 	if _hint != null:
 		_hint.text = "힌트 %d" % hint_left
 		_hint.disabled = hint_left <= 0
+
+func set_time_left(seconds: float, danger: bool) -> void:
+	if _timer_label == null or not _timer_chip.visible:
+		return
+	var s: int = int(ceilf(maxf(0.0, seconds)))
+	_timer_label.text = "%02d:%02d" % [s / 60, s % 60]
+	var col: Color = UiStyle.DANGER if danger else UiStyle.WHITE
+	_timer_label.add_theme_color_override("font_color", col)
 
 func set_instability(value: float, level: int) -> void:
 	if _bar != null:

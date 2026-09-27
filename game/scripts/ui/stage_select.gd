@@ -10,7 +10,7 @@ var _list: VBoxContainer
 var _content: Control
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build()
 	# 배경은 화면 끝까지, 내용은 안전 영역 안으로.
 	SafeArea.bind(_content)
@@ -18,12 +18,12 @@ func _ready() -> void:
 func _build() -> void:
 	var bg := ColorRect.new()
 	bg.color = UiStyle.NAVY
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
 	_content = Control.new()
-	_content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_content)
 
@@ -131,7 +131,7 @@ func _stage_card(chapter: StageCatalog.Chapter, index: int,
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	row.offset_left = 26
 	row.offset_right = -26
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE

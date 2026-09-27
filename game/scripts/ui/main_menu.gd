@@ -11,6 +11,7 @@ const SPIN_SPEED := 9.0        ## 초당 도
 @onready var _display: Node3D = $Display
 
 var _hero: Node3D
+var _settings: SettingsPanel
 
 func _ready() -> void:
 	_spawn_hero()
@@ -34,7 +35,7 @@ func _build_ui() -> void:
 	add_child(layer)
 
 	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 	SafeArea.bind(root)
@@ -67,11 +68,29 @@ func _build_ui() -> void:
 	chapters.pressed.connect(func() -> void: Session.goto_select())
 	root.add_child(chapters)
 
+	var gear := UiStyle.button("⚙", 40, UiStyle.WHITE, Color(UiStyle.DIM, 0.55))
+	UiStyle.anchor(gear, 1, 0, 1, 0, -132, 44, -40, 136)
+	gear.pressed.connect(func() -> void: _settings.open_panel())
+	root.add_child(gear)
+
+	_settings = SettingsPanel.new()
+	_settings.name = "Settings"
+	# 진행을 지우면 "이어서/시작" 과 진행 칩이 거짓말이 된다. 화면을 다시 만든다.
+	_settings.progress_cleared.connect(func() -> void:
+		await get_tree().create_timer(0.6).timeout
+		Session.goto_menu())
+	layer.add_child(_settings)
+
 	var version := UiStyle.label("v%s  ·  VERTICAL SLICE" % _version(), 18,
 		Color(UiStyle.DIM, 0.7), 3)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	UiStyle.anchor(version, 0, 1, 1, 1, 0, -96, 0, -56)
 	root.add_child(version)
+
+## 캡처용.
+func debug_open_settings() -> void:
+	if _settings != null:
+		_settings.open_panel()
 
 func _on_start() -> void:
 	var target := Session.continue_target()
