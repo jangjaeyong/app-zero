@@ -7,11 +7,13 @@ extends PartInteraction
 ## 이게 "정렬" 의 손맛이다.
 
 const TICK_DEGREES := 10.0
+const PIVOT_DEADZONE := 8.0
 
 var _axis_world: Vector3
 var _sign: float = 1.0
 var _center: Vector2
 var _last_screen_angle: float = 0.0
+var _has_reference: bool = false
 var _angle: float = 0.0             ## 기준 자세로부터의 현재 각(도)
 var _home_basis: Basis
 var _next_tick: float = TICK_DEGREES
@@ -34,16 +36,26 @@ func _on_begin() -> void:
 	_emit_closeness()
 
 func set_start(screen_pos: Vector2) -> void:
-	_last_screen_angle = _screen_angle(screen_pos)
+	_grab_reference(screen_pos)
 
-func _screen_angle(screen_pos: Vector2) -> float:
+## 중심 근처에서는 각을 잴 수 없다. 기준을 못 잡았으면 이번 프레임은 버린다 —
+## 0도를 기준으로 삼으면 손가락을 조금 옮긴 것이 큰 회전으로 들어간다.
+func _grab_reference(screen_pos: Vector2) -> bool:
 	var v := screen_pos - _center
-	if v.length() < 8.0:
-		return _last_screen_angle
-	return rad_to_deg(atan2(v.y, v.x))
+	if v.length() < PIVOT_DEADZONE:
+		return false
+	_last_screen_angle = rad_to_deg(atan2(v.y, v.x))
+	_has_reference = true
+	return true
 
 func update(screen_pos: Vector2) -> void:
-	var a := _screen_angle(screen_pos)
+	if not _has_reference:
+		_grab_reference(screen_pos)
+		return
+	var v := screen_pos - _center
+	if v.length() < PIVOT_DEADZONE:
+		return
+	var a: float = rad_to_deg(atan2(v.y, v.x))
 	var d: float = wrapf(a - _last_screen_angle, -180.0, 180.0) * _sign
 	_last_screen_angle = a
 
@@ -74,6 +86,10 @@ func _emit_closeness() -> void:
 	var err: float = absf(_angle - part.params().rotation_target)
 	var span: float = maxf(part.params().align_range, 1.0)
 	progress_changed.emit(clampf(1.0 - err / span, 0.0, 1.0))
+
+## 취소돼도 지금 각도는 남겨야 한다. 안 그러면 다음에 잡을 때 튄다.
+func _on_cancel() -> void:
+	part.align_angle = _angle
 
 func _on_finish() -> void:
 	part.state = Part.State.IDLE

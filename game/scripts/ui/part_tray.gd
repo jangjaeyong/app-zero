@@ -32,7 +32,9 @@ func _ready() -> void:
 	_viewport.name = "TrayViewport"
 	_viewport.transparent_bg = true
 	_viewport.own_world_3d = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# 내용이 바뀔 때만 그린다. 매 프레임 3D 패스를 한 번 더 도는 것은
+	# 중급 폰에서 그냥 버리는 비용이다.
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_viewport.msaa_3d = Viewport.MSAA_2X
 	container.add_child(_viewport)
 
@@ -94,9 +96,19 @@ func _build_world() -> void:
 		_slot_frames.append(frame)
 
 ## 뷰포트 크기가 바뀌면 격자가 어긋난다. 칸틀과 이미 담긴 부품을 같이 옮긴다.
+## 잠깐 그리고 다시 멈춘다.
+func _wake(seconds: float) -> void:
+	if _viewport == null:
+		return
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	await get_tree().create_timer(seconds).timeout
+	if is_instance_valid(_viewport):
+		_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
 func _relayout_slots() -> void:
 	if _viewport == null:
 		return
+	_wake(0.1)
 	for i in _slot_frames.size():
 		_slot_frames[i].position = _slot_position(i) + Vector3(0, 0, -0.6)
 	for index in _occupants:
@@ -140,9 +152,10 @@ func accept(part: Part, index: int) -> void:
 	_occupants[index] = part
 	_part_slot[part.def.id] = index
 
-	var tw := part.create_tween()
+	var tw := part.track(part.create_tween())
 	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(part, "scale", Vector3.ONE * _present_scale(part), 0.32)
+	_wake(0.45)
 
 ## 얇은 판은 옆에서 보면 카드 한 장이다. 가장 얇은 축을 화면 쪽으로 돌려
 ## 제일 넓은 면이 보이게 한 다음, 살짝 기울여 입체감을 준다.
@@ -187,6 +200,7 @@ func release(part: Part, device_parts_root: Node3D) -> void:
 	part.input_ray_pickable = true
 	if part.mesh != null:
 		part.mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_wake(0.1)
 
 func clear() -> void:
 	_occupants.clear()

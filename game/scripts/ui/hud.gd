@@ -36,6 +36,7 @@ var _stars: HBoxContainer
 var _clear_actions: HBoxContainer
 var _next_button: Button
 var _bottom_bar: HBoxContainer
+var _busy: bool = false
 var _pause_layer: Control
 var _settings: SettingsPanel
 var _timer_label: Label
@@ -67,15 +68,17 @@ func _ready() -> void:
 	_build_ring()
 	_build_tray()
 	_build_bottom()
+	# 화면 전체를 덮는 것들은 안전 영역 안이 아니라 **화면 끝까지** 가야 한다.
+	# _root 에 붙이면 노치 밑으로 3D 가 그대로 비친다.
 	_vignette = DangerVignette.new()
 	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(_vignette)
+	add_child(_vignette)
 
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_flash)
+	add_child(_flash)
 
 	_build_clear_overlay()
 	_build_fail()
@@ -181,7 +184,7 @@ func _build_pause() -> void:
 	_pause_layer = Control.new()
 	_pause_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_layer.visible = false
-	_root.add_child(_pause_layer)
+	add_child(_pause_layer)
 
 	var dim := ColorRect.new()
 	dim.color = Color(UiStyle.NAVY, 0.82)
@@ -234,8 +237,13 @@ func _build_pause() -> void:
 	_settings.name = "Settings"
 	add_child(_settings)
 
+## 연출이 진행 중일 때는 일시정지를 막는다.
+## 코어 안정화 1.1초 사이에 나가면 다 푼 판이 기록되지 않고 날아간다.
+func set_busy(on: bool) -> void:
+	_busy = on
+
 func open_pause() -> void:
-	if _pause_layer == null or _pause_layer.visible or _clear_layer.visible:
+	if _pause_layer == null or _pause_layer.visible or _clear_layer.visible or _busy:
 		return
 	_pause_layer.visible = true
 	Sfx.play("click", -8.0)
@@ -251,6 +259,19 @@ func close_pause() -> void:
 func is_paused() -> bool:
 	return _pause_layer != null and _pause_layer.visible
 
+func is_settings_open() -> bool:
+	return _settings != null and _settings.visible
+
+## 뒤로 가기 한 번에 한 겹씩 닫는다. 닫을 게 있었으면 true.
+func close_topmost() -> bool:
+	if is_settings_open():
+		_settings.close_panel()
+		return true
+	if is_paused():
+		close_pause()
+		return true
+	return false
+
 # --- 성공 연출 ----------------------------------------------------------
 
 func _build_clear_overlay() -> void:
@@ -258,7 +279,8 @@ func _build_clear_overlay() -> void:
 	_clear_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_clear_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clear_layer.visible = false
-	_root.add_child(_clear_layer)
+	add_child(_clear_layer)
+	SafeArea.bind(_clear_layer)
 
 	_dim = ColorRect.new()
 	_dim.color = Color(UiStyle.NAVY, 0.0)
@@ -300,6 +322,9 @@ func _build_clear_overlay() -> void:
 	_clear_actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	_clear_actions.add_theme_constant_override("separation", 20)
 	_clear_actions.modulate = Color(1, 1, 1, 0)
+	# modulate 는 입력을 막지 않는다. 안 보이는 동안 눌려서 별이 뜨기도 전에
+	# 다음 판으로 넘어가는 일이 있었다.
+	_clear_actions.visible = false
 	_clear_layer.add_child(_clear_actions)
 	UiStyle.anchor(_clear_actions, 0, 1, 1, 1, 46, -176, -46, -50)
 
@@ -346,6 +371,7 @@ func play_clear_sequence(moves: int, par: int, stars: int, has_next: bool) -> vo
 	for i in 3:
 		tw.tween_interval(0.16)
 		tw.tween_callback(_light_star.bind(i, i < stars))
+	tw.tween_callback(func() -> void: _clear_actions.visible = true)
 	tw.tween_property(_clear_actions, "modulate:a", 1.0, 0.35)
 
 func _light_star(index: int, lit: bool) -> void:
@@ -371,6 +397,7 @@ func hide_clear() -> void:
 	_stable_label.add_theme_color_override("font_color", Color(UiStyle.GREEN, 0.0))
 	_clear_box.modulate = Color(1, 1, 1, 0)
 	_clear_actions.modulate = Color(1, 1, 1, 0)
+	_clear_actions.visible = false
 
 # --- 실패 (위험/보스 모드) ---------------------------------------------
 
@@ -378,7 +405,7 @@ func _build_fail() -> void:
 	_fail_layer = Control.new()
 	_fail_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fail_layer.visible = false
-	_root.add_child(_fail_layer)
+	add_child(_fail_layer)
 
 	var dim := ColorRect.new()
 	dim.color = Color(0.12, 0.02, 0.02, 0.72)

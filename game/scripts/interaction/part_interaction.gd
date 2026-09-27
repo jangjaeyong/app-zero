@@ -24,6 +24,8 @@ func begin(p: Part, c: InteractionContext) -> void:
 	blockers = ctx.engine.blockers_of(p.def.id)
 	_rejected_fired = false
 	_done = false
+	# 되돌아가던 트윈이 살아 있으면 드래그와 싸운다. 잡는 순간 끊는다.
+	part.kill_motion()
 	part.state = Part.State.ENGAGED
 	_on_begin()
 
@@ -43,11 +45,19 @@ func finish() -> void:
 		return
 	_on_finish()
 
+## 두 번째 손가락이 들어와 핀치로 넘어갈 때 등. 켜 둔 표시를 반드시 끈다 —
+## 예전에는 테두리가 켜진 채로 남았다.
 func cancel() -> void:
 	if _done:
 		return
 	part.state = Part.State.IDLE
+	part.set_outline(Part.OUTLINE_FREE, 0.0)
+	progress_changed.emit(0.0)
+	_on_cancel()
 	part.settle_home()
+
+func _on_cancel() -> void:
+	pass
 
 func _on_begin() -> void:
 	pass
@@ -65,6 +75,14 @@ func _reject(shake_axis: Vector3 = Vector3.ZERO) -> void:
 
 func _complete() -> void:
 	if _done:
+		return
+	# 시작할 때의 자격을 끝까지 믿으면 안 된다. 그 사이에 벌칙이나 되돌리기로
+	# 막는 부품이 되살아났을 수 있다.
+	if ctx != null and ctx.engine != null and not ctx.engine.is_free(part.def.id):
+		free = false
+		blockers = ctx.engine.blockers_of(part.def.id)
+		part.settle_home()
+		_reject(Vector3.ZERO)
 		return
 	_done = true
 	part.state = Part.State.REMOVED if part.def.leaves_device() else Part.State.SETTLED

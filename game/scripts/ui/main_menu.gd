@@ -92,6 +92,16 @@ func debug_open_settings() -> void:
 	if _settings != null:
 		_settings.open_panel()
 
+## 안드로이드 뒤로 가기. 메인에서는 설정을 닫고, 없으면 앱을 끈다
+## (project.godot 의 quit_on_go_back 을 꺼 뒀으므로 직접 끊어야 한다).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if _settings != null and _settings.visible:
+		_settings.close_panel()
+		return
+	get_tree().quit()
+
 func _on_start() -> void:
 	var target := Session.continue_target()
 	if target.is_empty():

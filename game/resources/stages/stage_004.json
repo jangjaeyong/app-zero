@@ -113,10 +113,10 @@
       "resist_angle": 8.0,
       "remove_direction": [
         0,
-        1,
-        0
+        0,
+        1
       ],
-      "remove_distance": 0.38
+      "remove_distance": 0.4
     },
     {
       "id": "EnergyCore",

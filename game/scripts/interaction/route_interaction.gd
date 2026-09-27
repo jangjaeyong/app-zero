@@ -8,23 +8,35 @@ extends PartInteraction
 ## 손가락이 그 선 위 어디쯤인지를 잰다. 카메라가 어느 각도에 있든 똑같이
 ## 동작하고, 3D 평면 투영 같은 것을 안 해도 된다.
 
-const DEVIATE_PX := 78.0        ## 이만큼 벗어나면 안 따라온다
+const DEVIATE_FALLBACK_PX := 78.0
 const BLOCKED_PROGRESS := 0.09  ## 막혀 있을 때 갈 수 있는 비율
 const FINISH_AT := 0.97
+## 한 번에 나아갈 수 있는 비율. 이게 없으면 목적지 근처로 손가락을 던지는 것만으로
+## 끝난다 — 경로를 따라가라는 규칙이 무의미해진다.
+const MAX_STEP := 0.085
 
 var _world: PackedVector3Array = PackedVector3Array()
 var _screen: PackedVector2Array = PackedVector2Array()
 var _lengths: PackedFloat32Array = PackedFloat32Array()   ## 누적 화면 길이
 var _total: float = 0.0
 var _progress: float = 0.0
+var _offset: Vector3 = Vector3.ZERO      ## 부품 원점과 경로 시작점의 차이
 var _next_tick: float = 0.12
 var _engaged: bool = false
+var _deviate_px: float = DEVIATE_FALLBACK_PX
 
 func _on_begin() -> void:
 	_progress = 0.0
 	_next_tick = 0.12
 	_engaged = false
 	_build_path()
+	# 스테이지가 준 허용 오차(월드 단위)를 화면 픽셀로 환산한다.
+	# 예전에는 상수만 써서 route_tolerance 가 아무 일도 안 했다.
+	var tol := part.params().route_tolerance
+	var axis := screen_axis_of(ctx.camera.global_transform.basis.x)
+	_deviate_px = DEVIATE_FALLBACK_PX
+	if tol > 0.0 and not axis["degenerate"]:
+		_deviate_px = clampf(tol * float(axis["px_per_unit"]), 34.0, 190.0)
 	part.set_outline(Part.OUTLINE_FREE if free else Part.OUTLINE_BLOCKED, 0.35)
 
 func _build_path() -> void:
@@ -48,6 +60,9 @@ func _build_path() -> void:
 	for i in range(1, _screen.size()):
 		_total += _screen[i].distance_to(_screen[i - 1])
 		_lengths.append(_total)
+	# 경로는 '길' 이지 부품의 위치가 아니다. 모델과 데이터가 몇 mm 어긋나 있어도
+	# 부품이 첫 터치에 튀지 않게 제 오프셋을 기억해 둔다.
+	_offset = part.global_position - _world[0]
 
 func set_start(_screen_pos: Vector2) -> void:
 	pass
@@ -59,7 +74,7 @@ func update(screen_pos: Vector2) -> void:
 	var t: float = hit["t"]
 	var dist: float = hit["dist"]
 
-	if dist > DEVIATE_PX:
+	if dist > _deviate_px:
 		# 경로를 벗어났다. 부품은 따라오지 않는다 — 손가락만 떠난다.
 		_reject(Vector3.ZERO)
 		return
@@ -67,6 +82,8 @@ func update(screen_pos: Vector2) -> void:
 	var limit: float = 1.0 if free else BLOCKED_PROGRESS
 	if not free and t > BLOCKED_PROGRESS * 0.8:
 		_reject(Vector3.ZERO)
+	# 손가락이 어디에 있든 진행은 조금씩만. 건너뛰기를 막는다.
+	t = clampf(t, _progress - MAX_STEP, _progress + MAX_STEP)
 	_progress = clampf(t, 0.0, limit)
 	_place(_progress)
 
@@ -112,7 +129,7 @@ func _place(t: float) -> void:
 			var seg: float = _lengths[i] - _lengths[i - 1]
 			var u: float = 0.0 if seg < 0.001 else (target - _lengths[i - 1]) / seg
 			var w: Vector3 = _world[i - 1].lerp(_world[i], clampf(u, 0.0, 1.0))
-			part.global_position = w
+			part.global_position = w + _offset
 			return
 
 func _on_finish() -> void:

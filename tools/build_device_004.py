@@ -16,10 +16,23 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import zero_blender as z
 
-WALL_Y = 0.310                       # 홈이 파인 뒷벽 안쪽 면
+# 뒷벽 상자는 y = 0.375 ± 0.03 이므로 **보이는 면은 0.345** 다.
+# 관찰자는 -Y 쪽에 있으니 벽 앞에 놓으려면 y 를 **줄여야** 한다.
+# (처음엔 0.310 에서 더 더하는 바람에 홈도 플러그도 벽 속에 박혀 있었다)
+WALL_FACE = 0.345
+
+
+def front(depth):
+    """벽면에서 관찰자 쪽으로 depth 만큼 나온 y 좌표."""
+    return WALL_FACE - depth
+
+
+WALL_Y = front(0.012)                # 홈 바닥
 # 홈의 꺾은선 (Blender). 스테이지 JSON 의 route_points 와 반드시 같아야 한다.
 ROUTE = [(-0.28, WALL_Y, -0.04), (-0.28, WALL_Y, 0.20), (0.06, WALL_Y, 0.20),
          (0.06, WALL_Y, 0.02), (0.30, WALL_Y, 0.02)]
+# Godot 좌표 (x, z, -y) — 스테이지 JSON 의 route_points 와 같아야 한다
+ROUTE_GODOT = [(p[0], p[2], -p[1]) for p in ROUTE]
 
 
 def channel(p):
@@ -27,7 +40,7 @@ def channel(p):
     parts = []
     for i in range(1, len(ROUTE)):
         a, b = ROUTE[i - 1], ROUTE[i]
-        mid = ((a[0] + b[0]) * 0.5, WALL_Y + 0.012, (a[2] + b[2]) * 0.5)
+        mid = ((a[0] + b[0]) * 0.5, front(0.004), (a[2] + b[2]) * 0.5)
         dx, dz = b[0] - a[0], b[2] - a[2]
         length = math.hypot(dx, dz) + 0.075
         if abs(dx) > abs(dz):
@@ -37,13 +50,13 @@ def channel(p):
         parts.append(z.box(size, mid, p["dark"], bevel=0.004))
     # 꺾이는 곳마다 작은 시안 점 — 길이 이어져 있다는 신호
     for pt in ROUTE[1:-1]:
-        parts.append(z.cyl(0.020, 0.016, (pt[0], WALL_Y + 0.004, pt[2]),
+        parts.append(z.cyl(0.020, 0.016, (pt[0], front(0.020), pt[2]),
                            p["cyan"], rot=(math.radians(90), 0, 0), verts=12))
     # 도착 단자 — 여기가 목적지다
     end = ROUTE[-1]
-    parts.append(z.torus(0.062, 0.014, (end[0], WALL_Y + 0.004, end[2]),
+    parts.append(z.torus(0.062, 0.014, (end[0], front(0.020), end[2]),
                          p["cyan"], rot=(math.radians(90), 0, 0), seg=24))
-    parts.append(z.cyl(0.048, 0.022, (end[0], WALL_Y + 0.020, end[2]),
+    parts.append(z.cyl(0.048, 0.022, (end[0], front(0.006), end[2]),
                        p["dark"], rot=(math.radians(90), 0, 0), verts=20))
     return parts
 
@@ -101,26 +114,26 @@ def build():
     for idx, (label, x) in enumerate((("IgnitionA", -0.26), ("IgnitionB", 0.0),
                                       ("IgnitionC", 0.26))):
         btn = [
-            z.cyl(0.062, 0.050, (x, WALL_Y - 0.012, 0.345), p["amber"],
+            z.cyl(0.062, 0.050, (x, front(0.034), 0.345), p["amber"],
                   rot=(math.radians(90), 0, 0), verts=24),
-            z.torus(0.074, 0.016, (x, WALL_Y + 0.002, 0.345), p["steel"],
+            z.torus(0.074, 0.016, (x, front(0.012), 0.345), p["steel"],
                     rot=(math.radians(90), 0, 0), seg=26),
         ]
         # 버튼마다 점 개수를 달리해 구분되게 (순서는 시범으로 알려 준다)
         for k in range(idx + 1):
             btn.append(z.cyl(0.009, 0.014, (x - 0.018 + k * 0.018,
-                                            WALL_Y - 0.036, 0.345),
+                                            front(0.058), 0.345),
                              p["dark"], rot=(math.radians(90), 0, 0), verts=8))
         z.join(btn, label)
 
     # ── 전원 플러그 (경로) ────────────────────────────────────────────
     start = ROUTE[0]
     plug = [
-        z.cyl(0.052, 0.070, (start[0], WALL_Y + 0.030, start[2]), p["brass"],
+        z.cyl(0.052, 0.070, (start[0], front(0.042), start[2]), p["brass"],
               rot=(math.radians(90), 0, 0), verts=20),
-        z.box((0.090, 0.040, 0.090), (start[0], WALL_Y + 0.062, start[2]),
+        z.box((0.090, 0.040, 0.090), (start[0], front(0.078), start[2]),
               p["steel"], bevel=0.006),
-        z.cyl(0.026, 0.050, (start[0], WALL_Y + 0.006, start[2]), p["cyan"],
+        z.cyl(0.026, 0.050, (start[0], front(0.014), start[2]), p["cyan"],
               rot=(math.radians(90), 0, 0), verts=12),
     ]
     z.join(plug, "PowerPlug")
@@ -143,6 +156,7 @@ def build():
                         rot=(math.radians(90), 0, 0), seg=32))
     z.join(core, "EnergyCore")
 
+    print("ZERO_ROUTE_GODOT", ROUTE_GODOT)
     z.export("device_004.glb")
 
 

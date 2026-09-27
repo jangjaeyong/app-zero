@@ -51,10 +51,11 @@
             0,
             1
           ],
-          "rotation_target": 60.0,
+          "rotation_target": 20.0,
           "resist_angle": 8.0,
           "resolve": "settle",
-          "sfx_tick": "ratchet"
+          "sfx_tick": "ratchet",
+          "align_tolerance": 6.0
         },
         {
           "interaction": "pull",
@@ -134,27 +135,27 @@
         [
           -0.28,
           -0.04,
-          -0.31
+          -0.333
         ],
         [
           -0.28,
           0.2,
-          -0.31
+          -0.333
         ],
         [
           0.06,
           0.2,
-          -0.31
+          -0.333
         ],
         [
           0.06,
           0.02,
-          -0.31
+          -0.333
         ],
         [
           0.3,
           0.02,
-          -0.31
+          -0.333
         ]
       ],
       "route_tolerance": 0.11,
@@ -187,15 +188,21 @@
           "interaction": "pull",
           "remove_direction": [
             0,
-            1,
-            0
+            0,
+            1
           ],
-          "remove_distance": 0.38,
+          "remove_distance": 0.4,
           "resist_distance": 0.03,
           "resolve": "remove",
           "sfx_engage": "slide"
         }
-      ]
+      ],
+      "remove_direction": [
+        0,
+        0,
+        1
+      ],
+      "remove_distance": 0.4
     },
     {
       "id": "EnergyCore",

@@ -30,10 +30,11 @@ def build():
         z.cyl(0.52, 0.10, (0, 0, -0.500), p["gun"], verts=40, bevel=0.014),
         z.torus(0.505, 0.032, (0, 0, -0.452), p["steel"], seg=48),
         z.cyl(0.070, 0.40, (0, 0, -0.250), p["steel"], verts=20),   # 스핀들
-        z.cyl(0.230, 0.045, (0, 0, -0.055), p["gun"], verts=32),     # 포드 받침
+        z.cyl(0.230, 0.045, (0, 0, -0.140), p["gun"], verts=32),     # 포드 받침
     ]
     for i in range(3):                                               # 내부 기둥
-        a = i * math.tau / 3.0 + math.radians(30)
+        # 기둥이 포드의 -X 진행 경로에 걸리지 않게 각도를 튼다
+        a = i * math.tau / 3.0 + math.radians(90)
         body.append(z.cyl(0.028, 0.72, (math.cos(a) * 0.32, math.sin(a) * 0.32, 0.02),
                           p["steel"], verts=12))
     body += z.gear(0.150, 0.045, -0.330, p["steel"], teeth=12,

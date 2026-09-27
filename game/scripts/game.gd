@@ -296,7 +296,7 @@ func _settle_in_place(part: Part) -> void:
 	if part.def.interaction == PartDef.Interaction.PRESS:
 		var target: Vector3 = part.home_transform.origin \
 			+ part.def.remove_direction * part.def.press_depth
-		var tw := part.create_tween()
+		var tw := part.track(part.create_tween())
 		tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tw.tween_property(part, "position", target, 0.13)
 		tw.tween_callback(func() -> void:
@@ -308,12 +308,17 @@ func _fly_to_tray(part: Part) -> void:
 	var slot: int = _slot_of.size()
 	_slot_of[part.def.id] = slot
 	var out: Vector3 = part.def.remove_direction * (part.def.remove_distance + 0.28)
-	var tw := part.create_tween()
+	var tw := part.track(part.create_tween())
 	tw.set_parallel(true)
 	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(part, "position", part.home_transform.origin + out, 0.26)
 	tw.tween_property(part, "scale", Vector3.ONE * 0.45, 0.26)
-	tw.chain().tween_callback(func() -> void: hud.tray.accept(part, slot))
+	tw.chain().tween_callback(func() -> void:
+		# 날아가는 0.26초 사이에 되돌리기나 벌칙이 들어왔을 수 있다.
+		# 그때 그대로 트레이에 넣으면 부품이 영영 못 돌아온다.
+		if not is_instance_valid(part) or not engine.is_resolved(part.def.id):
+			return
+		hud.tray.accept(part, slot))
 
 # --- 코어 안정화 (기획서 12번) ------------------------------------------
 
@@ -322,6 +327,7 @@ func _stabilize_core(part: Part) -> void:
 		return
 	_clearing = true
 	router.input_locked = true
+	hud.set_busy(true)          # 이 구간에 나가면 푼 판이 기록되지 않는다
 	_core_stable = true
 	if _fx != null:
 		_fx.set_heat(0.0)
@@ -340,22 +346,25 @@ func _stabilize_core(part: Part) -> void:
 	tw.tween_callback(func() -> void: engine.mark_resolved(part.def.id))
 
 func _on_stage_cleared() -> void:
+	hud.set_busy(false)
 	var penalty: int = _instability.overloads if _instability != null else 0
 	var stars := Progress.record_clear(stage.id, engine.moves, stage.par_moves, penalty)
 	hud.play_clear_sequence(engine.moves, stage.par_moves, stars, Session.has_next())
 
-## 엔진이 어떤 이유로든 해결을 취소했을 때 (순서 오류, 벌칙, 되돌리기).
-## 여기서는 순서 그룹만 챙긴다 — 나머지는 각자 부르는 쪽에서 처리한다.
+## 엔진이 어떤 이유로든 해결을 취소했을 때 — 되돌리기, 벌칙, 순서 오류.
+## **모든 되돌림이 여기 한 곳을 지난다.** 예전에는 부르는 쪽마다 따로 처리해서
+## 한 군데라도 빠지면 부품이 트레이에 갇혔다.
 func _on_part_restored(id: String) -> void:
-	var def: PartDef = stage.parts.get(id)
-	if def == null or def.sequence_group.is_empty():
-		return
 	var part: Part = _rig.get_part(id)
 	if part == null:
 		return
-	part.reset_to_origin()
+	part.kill_motion()
+	if _slot_of.has(id):
+		hud.tray.release(part, _rig.parts_root())
+		_slot_of.erase(id)
+	else:
+		part.reset_to_origin()
 	part.state = Part.State.IDLE
-	part.flash_blocker()
 
 ## 순서를 틀렸다. 되돌리는 것으로 끝내면 눈 감고 찍는 게 된다.
 ## 잠깐 뒤에 시범을 다시 보여 준다.
@@ -363,6 +372,8 @@ func _on_group_reset(group: String) -> void:
 	if _clearing or _failed:
 		return
 	hud.flash_part_name("순서가 틀렸다", UiStyle.DANGER)
+	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 	await get_tree().create_timer(0.85).timeout
 	if _clearing or _failed:
 		return
@@ -469,15 +480,9 @@ func _on_undo() -> void:
 	if id.is_empty():
 		return
 	_undo_left -= 1
+	# 부품 복구는 _on_part_restored 가 이미 처리했다. 여기서는 표시만.
 	var part: Part = _rig.get_part(id)
 	if part != null:
-		if _slot_of.has(id):
-			hud.tray.release(part, _rig.parts_root())
-			_slot_of.erase(id)
-		else:
-			# 제자리에 남았던 부품은 원래 자리로 되돌린다.
-			part.reset_to_origin()
-		part.state = Part.State.IDLE
 		part.pulse(Part.OUTLINE_HINT, 1)
 	Sfx.play_varied("slide", -8.0)
 	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
@@ -624,10 +629,11 @@ func _notification(what: int) -> void:
 		return
 	if hud == null:
 		return
-	if hud.is_paused():
-		hud.close_pause()
-	else:
-		hud.open_pause()
+	# 겹쳐 있는 것을 한 겹씩 닫는다. 예전에는 설정이 열려 있어도 일시정지를
+	# 풀어 버려서, 불투명한 설정 화면 뒤에서 시계가 다시 돌았다.
+	if hud.close_topmost():
+		return
+	hud.open_pause()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not DebugFlags.available:
@@ -637,9 +643,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match k.keycode:
 		KEY_ESCAPE:
-			if hud.is_paused():
-				hud.close_pause()
-			else:
+			if not hud.close_topmost():
 				hud.open_pause()
 		KEY_F1:
 			DebugFlags.toggle_overlay()

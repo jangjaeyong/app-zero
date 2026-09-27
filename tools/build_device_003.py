@@ -16,8 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import zero_blender as z
 
 # 다이얼 두 개의 위치와 목표 각(도, Blender +Z 기준. Godot 에서도 부호가 같다)
-DIAL = {"pos": (-0.215, 0.02, 0.300), "target": 55.0, "r": 0.140}
-VALVE = {"pos": (0.225, 0.02, 0.300), "target": -80.0, "r": 0.125}
+# 목표 각은 눈금이 **장치 축에서 멀어지는 쪽**을 향해야 한다.
+# +55 로 두면 눈금이 연료봉 소켓 안으로 들어가 안 보였다.
+DIAL = {"pos": (-0.215, 0.02, 0.300), "target": -55.0, "r": 0.140}
+VALVE = {"pos": (0.225, 0.02, 0.300), "target": 80.0, "r": 0.125}
 
 
 def dial_marks(p, center, radius, target, count=12):
@@ -64,7 +66,7 @@ def build():
     ]
     for sx in (-1, 1):
         for sy in (-1, 1):
-            body.append(z.cyl(0.030, 0.10, (sx * 0.442, sy * 0.310, 0.300),
+            body.append(z.cyl(0.030, 0.34, (sx * 0.442, sy * 0.310, 0.420),
                               p["steel"], verts=12))
     # 앞면 통풍구
     for i in range(4):
@@ -76,24 +78,24 @@ def build():
                           p["dark"], verts=36))
         body += dial_marks(p, d["pos"], d["r"], d["target"])
     # 연료봉 소켓과 코어 케이지
-    body.append(z.cyl(0.115, 0.045, (0, 0, 0.296), p["dark"], verts=28))
+    body.append(z.cyl(0.162, 0.045, (0, 0, 0.296), p["dark"], verts=28))
     for rot in ((math.radians(90), 0, 0), (0, math.radians(90), 0)):
-        body.append(z.torus(0.152, 0.009, (0, 0, 0.352), p["steel"], rot=rot, seg=32))
+        body.append(z.torus(0.168, 0.009, (0, 0, 0.400), p["steel"], rot=rot, seg=32))
     body.append(z.tube([(-0.40, 0.26, -0.28), (-0.10, 0.30, -0.14),
                         (0.28, 0.24, -0.26)], 0.028, p["cyan"]))
     z.join(body, "Body", recenter=False)
 
     # ── 접근 덮개 (당기기) ────────────────────────────────────────────
     cover = [
-        z.box((0.96, 0.72, 0.055), (0, 0, 0.400), p["panel"], bevel=0.016),
-        z.box((0.76, 0.52, 0.020), (0, 0, 0.436), p["panel"], bevel=0.010),
+        z.box((0.96, 0.72, 0.055), (0, 0, 0.640), p["panel"], bevel=0.016),
+        z.box((0.76, 0.52, 0.020), (0, 0, 0.676), p["panel"], bevel=0.010),
     ]
-    cover.append(z.cyl(0.120, 0.028, (0, 0, 0.446), p["glass"], verts=32))
-    cover.append(z.torus(0.130, 0.016, (0, 0, 0.446), p["steel"], seg=36))
+    cover.append(z.cyl(0.120, 0.028, (0, 0, 0.686), p["glass"], verts=32))
+    cover.append(z.torus(0.130, 0.016, (0, 0, 0.686), p["steel"], seg=36))
     for sx in (-1, 1):
-        cover.append(z.torus(0.052, 0.014, (sx * 0.34, 0.0, 0.452), p["brass"],
+        cover.append(z.torus(0.052, 0.014, (sx * 0.34, 0.0, 0.692), p["brass"],
                              rot=(math.radians(90), 0, 0), seg=24))
-        cover.append(z.box((0.050, 0.050, 0.014), (sx * 0.40, -0.28, 0.434),
+        cover.append(z.box((0.050, 0.050, 0.014), (sx * 0.40, -0.28, 0.674),
                            p["led"], bevel=0.003, rot=(0, 0, math.radians(45))))
     z.join(cover, "AccessCover")
 
@@ -131,26 +133,26 @@ def build():
     # ── 잠금 바 둘 (밀기) ─────────────────────────────────────────────
     for side, label in ((-1, "LockBarL"), (1, "LockBarR")):
         bar = [
-            z.box((0.150, 0.090, 0.070), (side * 0.370, 0.268, 0.330), p["steel"],
+            z.box((0.150, 0.090, 0.070), (side * 0.370, 0.150, 0.330), p["steel"],
                   bevel=0.008),
-            z.cyl(0.048, 0.062, (side * 0.445, 0.268, 0.330), p["brass"],
+            z.cyl(0.048, 0.062, (side * 0.445, 0.150, 0.330), p["brass"],
                   rot=(0, math.radians(90), 0), verts=20),
-            z.box((0.026, 0.110, 0.100), (side * 0.292, 0.268, 0.330), p["dark"],
+            z.box((0.026, 0.110, 0.100), (side * 0.292, 0.150, 0.330), p["dark"],
                   bevel=0.005),
         ]
         z.join(bar, label)
 
     # ── 연료봉 (당기기) ───────────────────────────────────────────────
-    rod = [z.cyl(0.072, 0.34, (0, 0, 0.400), p["amber"], verts=24)]
-    rod.append(z.cyl(0.098, 0.050, (0, 0, 0.560), p["steel"], verts=24))
-    rod.append(z.torus(0.062, 0.016, (0, 0, 0.596), p["brass"],
+    rod = [z.cyl(0.128, 0.30, (0, 0, 0.420), p["amber"], verts=28)]
+    rod.append(z.cyl(0.148, 0.046, (0, 0, 0.590), p["steel"], verts=28))
+    rod.append(z.torus(0.058, 0.015, (0, 0, 0.622), p["brass"],
                        rot=(math.radians(90), 0, 0), seg=24))
-    rod.append(z.cyl(0.090, 0.040, (0, 0, 0.252), p["steel"], verts=24))
+    rod.append(z.cyl(0.142, 0.040, (0, 0, 0.292), p["steel"], verts=28))
     z.join(rod, "FuelRod")
 
     # ── 에너지 코어 (길게 누르기) ─────────────────────────────────────
-    core = [z.sphere(0.112, (0, 0, 0.352), p["core"])]
-    core.append(z.torus(0.116, 0.013, (0, 0, 0.352), p["brass"],
+    core = [z.sphere(0.100, (0, 0, 0.400), p["core"])]
+    core.append(z.torus(0.104, 0.012, (0, 0, 0.400), p["brass"],
                         rot=(math.radians(90), 0, 0), seg=32))
     z.join(core, "EnergyCore")
 

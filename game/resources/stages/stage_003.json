@@ -18,12 +18,12 @@
     "rare_parts": 1
   },
   "camera": {
-    "distance": 5.35,
+    "distance": 5.1,
     "pitch": 30.0,
     "yaw": -30.0,
-    "height": -0.24,
+    "height": -0.1,
     "min": 3.2,
-    "max": 6.8
+    "max": 7.0
   },
   "parts": [
     {
@@ -36,7 +36,7 @@
         1,
         0
       ],
-      "remove_distance": 0.36,
+      "remove_distance": 0.42,
       "resist_distance": 0.04,
       "sfx_engage": "slide",
       "sfx_release": "snap"
@@ -53,7 +53,7 @@
         1,
         0
       ],
-      "rotation_target": 55.0,
+      "rotation_target": -55.0,
       "align_tolerance": 6.0,
       "align_range": 175.0,
       "resist_angle": 8.0,
@@ -107,7 +107,7 @@
         1,
         0
       ],
-      "rotation_target": -80.0,
+      "rotation_target": 80.0,
       "align_tolerance": 8.0,
       "align_range": 175.0,
       "resist_angle": 8.0,
@@ -126,7 +126,7 @@
         1,
         0
       ],
-      "remove_distance": 0.44,
+      "remove_distance": 0.46,
       "resist_distance": 0.032,
       "sfx_engage": "slide",
       "sfx_release": "lock_release"

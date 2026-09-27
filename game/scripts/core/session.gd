@@ -11,6 +11,9 @@ const GAME_SCENE := "res://scenes/game/game.tscn"
 var catalog: StageCatalog
 var current_stage_path: String = ""
 var current_chapter_id: String = ""
+## 경로 → 스테이지 id. 메뉴와 선택 화면이 스테이지마다 여러 번 묻는다.
+## 캐시가 없으면 60판에서 화면을 열 때마다 JSON 60개를 다시 읽는다.
+var _id_cache: Dictionary = {}
 
 func _ready() -> void:
 	catalog = StageCatalog.load_default()
@@ -20,8 +23,12 @@ func load_stage(path: String) -> StageDef:
 	return StageDef.load_from(path)
 
 func stage_id_of(path: String) -> String:
+	if _id_cache.has(path):
+		return _id_cache[path]
 	var s := load_stage(path)
-	return s.id if s != null else ""
+	var id := s.id if s != null else ""
+	_id_cache[path] = id
+	return id
 
 func play(stage_path: String) -> void:
 	if stage_path.is_empty():

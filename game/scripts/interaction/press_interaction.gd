@@ -13,10 +13,12 @@ var _held: float = 0.0
 var _start_screen: Vector2
 var _home: Vector3
 var _sound_started: bool = false
+var _slipped: bool = false
 
 func _on_begin() -> void:
 	_held = 0.0
 	_sound_started = false
+	_slipped = false
 	_home = part.home_transform.origin
 	if not free:
 		part.set_outline(Part.OUTLINE_BLOCKED, 0.45)
@@ -30,12 +32,15 @@ func set_start(screen_pos: Vector2) -> void:
 
 func update(screen_pos: Vector2) -> void:
 	# 손가락이 많이 미끄러지면 누르기를 놓친 것으로 본다.
-	if free and (screen_pos - _start_screen).length() > CANCEL_SLOP:
+	# 가만히 있으면 드래그 이벤트가 안 오므로 상태로 기억해야 한다 —
+	# 예전에는 버튼에서 손을 뗀 채로 기다리면 그냥 눌렸다.
+	_slipped = (screen_pos - _start_screen).length() > CANCEL_SLOP
+	if free and _slipped:
 		_held = 0.0
 		progress_changed.emit(0.0)
 
 func tick(delta: float) -> void:
-	if not free:
+	if not free or _slipped:
 		return
 	if not _sound_started:
 		_sound_started = true

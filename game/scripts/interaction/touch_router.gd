@@ -14,7 +14,14 @@ signal empty_tapped()
 
 var ctx: InteractionContext
 var orbit: OrbitCamera
-var input_locked: bool = false
+## 잠그면 **진행 중인 조작까지** 끊는다. 예전에는 새 터치만 막아서,
+## 시간이 다 된 뒤에도 쥐고 있던 부품이 계속 진행해 클리어까지 됐다.
+var input_locked: bool = false:
+	set(v):
+		input_locked = v
+		if v:
+			_abort_interaction()
+			_orbiting = false
 
 var _touches: Dictionary = {}          ## index -> Vector2
 var _primary: int = -1
@@ -27,6 +34,8 @@ var _press_pos: Vector2 = Vector2.ZERO
 var _moved: bool = false
 
 func _process(delta: float) -> void:
+	if input_locked:
+		return
 	if _interaction != null:
 		_interaction.tick(delta)
 
@@ -85,6 +94,8 @@ func _on_press(index: int, pos: Vector2) -> void:
 
 func _on_drag(index: int, pos: Vector2, relative: Vector2) -> void:
 	_touches[index] = pos
+	if input_locked:
+		return
 
 	if _touches.size() >= 2:
 		_update_pinch()
@@ -107,6 +118,11 @@ func _on_release(index: int) -> void:
 		_pinching = false
 
 	if index != _primary:
+		# 보조 손가락이 먼저 떨어졌다. 남은 주 손가락이 아무것도 못 하게
+		# 방치하지 말고 카메라 회전으로 넘긴다.
+		if _touches.size() == 1 and _interaction == null:
+			_orbiting = true
+			_moved = true
 		return
 
 	if _interaction != null:
@@ -150,10 +166,12 @@ func _begin_interaction(part: Part, pos: Vector2) -> void:
 	inter.completed.connect(_on_completed)
 	inter.rejected.connect(_on_rejected)
 	inter.progress_changed.connect(func(v: float) -> void: interaction_progress.emit(v))
-	inter.begin(part, ctx)
-	inter.set_start(pos)
+	# 등록과 알림을 먼저. begin() 안에서 바로 완료되는 조작(순서 버튼)이 있다.
 	_interaction = inter
 	part_engaged.emit(part)
+	inter.begin(part, ctx)
+	if _interaction == inter:
+		inter.set_start(pos)
 
 func _abort_interaction() -> void:
 	if _interaction == null:

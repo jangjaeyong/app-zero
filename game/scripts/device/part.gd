@@ -25,6 +25,7 @@ var _base_emission_energy: float = 0.0
 var align_angle: float = 0.0        ## 맞추기 부품이 지금 돌아가 있는 각(도)
 var step_index: int = 0             ## 여러 단계 부품이 지금 몇 번째인가
 var _shake_tween: Tween
+var _motion: Array[Tween] = []
 var _outline_tween: Tween
 
 func setup(part_def: PartDef, mesh_node: MeshInstance3D) -> void:
@@ -103,15 +104,30 @@ func set_outline(color: Color, alpha: float, through: bool = false) -> void:
 		_outline_tween.kill()
 	_set_through(through)
 	_outline.visible = alpha > 0.001
-	_outline_mat.albedo_color = Color(color, alpha)
+	_outline_mat.albedo_color = Color(color, _alpha(alpha))
 
 ## 벽을 뚫고 보이게 할지. 가려진 부품을 가리킬 때 켠다.
+##
+## ⚠️ 평소의 외곽선은 "부풀린 껍질 + 앞면 컬링 + 깊이 검사" 로 그린다.
+## 깊이 검사를 끄면 껍질의 **뒷면 전체** 가 그려져 부품이 통째로 덩어리가 된다.
+## 그래서 뚫어 보는 모드에서는 부풀리기를 끄고 제 모양 그대로 옅게 비춘다 —
+## 외곽선이 아니라 엑스레이다.
+var _through: bool = false
+
 func _set_through(on: bool) -> void:
 	if _outline_mat == null:
 		return
+	_through = on
 	_outline_mat.no_depth_test = on
 	_outline_mat.render_priority = 3 if on else 1
-	_outline_mat.grow_amount = 0.030 if on else 0.016
+	_outline_mat.grow = not on
+	_outline_mat.grow_amount = 0.0 if on else 0.016
+	_outline_mat.cull_mode = BaseMaterial3D.CULL_BACK if on \
+		else BaseMaterial3D.CULL_FRONT
+
+## 엑스레이는 진하면 부품을 가린다. 알파를 눌러 준다.
+func _alpha(a: float) -> float:
+	return a * 0.42 if _through else a
 
 func fade_outline(color: Color, alpha: float, time: float) -> void:
 	if _outline == null:
@@ -121,7 +137,7 @@ func fade_outline(color: Color, alpha: float, time: float) -> void:
 	_outline.visible = true
 	_outline_mat.albedo_color = Color(color, _outline_mat.albedo_color.a)
 	_outline_tween = create_tween()
-	_outline_tween.tween_property(_outline_mat, "albedo_color:a", alpha, time)
+	_outline_tween.tween_property(_outline_mat, "albedo_color:a", _alpha(alpha), time)
 	if alpha <= 0.001:
 		_outline_tween.tween_callback(func() -> void:
 			if is_instance_valid(_outline):
@@ -138,7 +154,7 @@ func flash_blocker() -> void:
 	_outline.visible = true
 	_outline_mat.albedo_color = Color(OUTLINE_BLOCKED, 0.0)
 	_outline_tween = create_tween()
-	_outline_tween.tween_property(_outline_mat, "albedo_color:a", 0.95, 0.07)
+	_outline_tween.tween_property(_outline_mat, "albedo_color:a", _alpha(0.95), 0.07)
 	_outline_tween.tween_property(_outline_mat, "albedo_color:a", 0.0, 0.45)
 	_outline_tween.tween_callback(func() -> void:
 		if is_instance_valid(_outline):
@@ -154,8 +170,8 @@ func pulse(color: Color, cycles: int = 3, through: bool = false) -> void:
 	_outline_mat.albedo_color = Color(color, 0.0)
 	_outline_tween = create_tween()
 	for i in cycles:
-		_outline_tween.tween_property(_outline_mat, "albedo_color:a", 0.85, 0.28)
-		_outline_tween.tween_property(_outline_mat, "albedo_color:a", 0.05, 0.32)
+		_outline_tween.tween_property(_outline_mat, "albedo_color:a", _alpha(0.85), 0.28)
+		_outline_tween.tween_property(_outline_mat, "albedo_color:a", _alpha(0.05), 0.32)
 	_outline_tween.tween_callback(func() -> void:
 		if is_instance_valid(_outline):
 			_outline.visible = false)
@@ -176,6 +192,21 @@ func shake(axis: Vector3 = Vector3.ZERO) -> void:
 	_shake_tween.tween_property(self, "position", home - dir * 0.7, 0.045)
 	_shake_tween.tween_property(self, "position", home + dir * 0.35, 0.045)
 	_shake_tween.tween_property(self, "position", home, 0.06)
+
+## 이 부품을 움직이는 트윈을 등록한다. 되돌리기·리셋 때 같이 죽여야
+## 이미 되돌린 부품이 뒤늦게 트레이로 날아가는 일이 없다.
+func track(tw: Tween) -> Tween:
+	_motion = _motion.filter(func(t: Tween) -> bool: return t != null and t.is_valid())
+	_motion.append(tw)
+	return tw
+
+func kill_motion() -> void:
+	for t in _motion:
+		if t != null and t.is_valid():
+			t.kill()
+	_motion.clear()
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
 
 ## 지금 단계의 값 묶음. 조작 클래스들은 def 가 아니라 이걸 읽는다 —
 ## 여러 단계 부품은 단계마다 방향·거리·조작이 다르다.
@@ -205,8 +236,7 @@ func commit_home() -> void:
 
 ## 스테이지 시작 상태로 되돌린다.
 func reset_to_origin() -> void:
-	if _shake_tween != null and _shake_tween.is_valid():
-		_shake_tween.kill()
+	kill_motion()
 	align_angle = 0.0
 	step_index = 0
 	home_transform = origin_transform
@@ -221,8 +251,7 @@ func settle_home(time: float = 0.14) -> void:
 	_shake_tween.tween_property(self, "transform", home_transform, time)
 
 func snap_home() -> void:
-	if _shake_tween != null and _shake_tween.is_valid():
-		_shake_tween.kill()
+	kill_motion()
 	transform = home_transform
 
 # --- 발광 (코어) --------------------------------------------------------

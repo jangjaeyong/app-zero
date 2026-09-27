@@ -61,13 +61,18 @@ func _check_scripts() -> int:
 
 func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 	var fails: Array[String] = []
+	# 통과 경로 검사는 상자 근사라 보수적이다. 실패로 막지 않고 눈으로 볼 목록으로만 낸다.
+	var warns: Array[String] = []
 	var stage := StageDef.load_from(path)
 	if stage == null:
 		print("  ✗ %s — 읽을 수 없다" % path)
 		return 1
 
 	# 1) 모델에 부품 메시가 다 있는가
-	var names := _mesh_names(stage.device_model)
+	var table := _mesh_table(stage.device_model)
+	var names := PackedStringArray()
+	for k in table:
+		names.append(k)
 	if names.is_empty():
 		fails.append("모델을 못 읽었다: %s" % stage.device_model)
 	else:
@@ -128,7 +133,58 @@ func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 			fails.append("순서 그룹 '%s' 의 번호가 %s 다 (0부터 %d 까지여야 한다)"
 				% [g_name, str(idx), idx.size() - 1])
 
-	# 6) 코어는 정확히 하나
+	# 6) 빠져나가는 길에 아직 붙어 있는 것을 뚫고 지나가는가.
+	#    이건 데이터만 봐서는 절대 안 보이고, 실제로 세 군데에서 일어나고 있었다.
+	warns.append_array(_sweep_check(stage, table))
+
+	# 7) 경로 시작점이 부품 자리와 맞는가 (몇 cm 어긋나면 첫 터치에 부품이 튄다)
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		for si in pd.step_count():
+			var sd := pd.step_at(si)
+			if sd.interaction != PartDef.Interaction.ROUTE or sd.route_points.is_empty():
+				continue
+			if not table.has(id):
+				continue
+			var origin: Vector3 = table[id]["origin"]
+			var gap: float = origin.distance_to(sd.route_points[0])
+			if gap > 0.05:
+				fails.append("%s 의 경로 시작점이 부품 자리에서 %.3f 떨어져 있다" % [id, gap])
+
+	# 8) 여러 단계 부품은 최상위 값으로 트레이에 날아간다.
+	#    마지막 단계와 어긋나면 엉뚱한 방향으로 날아간다.
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		if not pd.has_steps():
+			continue
+		var last := pd.step_at(pd.step_count() - 1)
+		if last.resolve != pd.resolve:
+			fails.append("%s: 마지막 단계의 resolve 가 최상위와 다르다" % id)
+		if pd.leaves_device() \
+				and pd.remove_direction.distance_to(last.remove_direction) > 0.01:
+			fails.append("%s: 최상위 remove_direction 이 마지막 단계와 다르다 %v / %v"
+				% [id, pd.remove_direction, last.remove_direction])
+
+	# 9) GLB 의 모든 메시가 부품이거나 정적 노드여야 한다
+	for mesh_name in table:
+		if stage.parts.has(mesh_name):
+			continue
+		if Array(stage.static_nodes).has(mesh_name):
+			continue
+		fails.append("GLB 의 '%s' 가 부품도 정적 노드도 아니다" % mesh_name)
+
+	# 10) 맞추기는 목표가 돌릴 수 있는 범위 안에 있어야 한다
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		for si in pd.step_count():
+			var sd := pd.step_at(si)
+			if sd.interaction != PartDef.Interaction.ALIGN:
+				continue
+			if absf(sd.rotation_target) + sd.align_tolerance > sd.align_range:
+				fails.append("%s 의 맞추기 목표 %.0f 가 범위 ±%.0f 를 벗어난다"
+					% [id, sd.rotation_target, sd.align_range])
+
+	# 11) 코어는 정확히 하나
 	var cores := 0
 	for id in stage.part_order:
 		if (stage.parts[id] as PartDef).is_core:
@@ -151,29 +207,114 @@ func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 		print("  ✓ %-9s %-26s 부품 %d · 기준 %d수 · %s"
 			% [chapter.id, stage.id, stage.part_order.size(), stage.par_moves,
 			   kind_text.strip_edges()])
-		return 0
-	print("  ✗ %-9s %s" % [chapter.id, stage.id])
-	for f in fails:
-		print("      · %s" % f)
+	else:
+		print("  ✗ %-9s %s" % [chapter.id, stage.id])
+		for f in fails:
+			print("      · %s" % f)
+	for w in warns:
+		print("      ⚠ %s" % w)
 	return fails.size()
 
-func _mesh_names(model_path: String) -> PackedStringArray:
-	var out := PackedStringArray()
+## 이름 → { origin: Vector3, aabb: AABB } (장치 좌표계).
+## 이름만 확인하던 것으로는 "빠지는 길에 뭘 뚫고 가는가" 를 볼 수 없다.
+## 제거되는 부품이 지나가는 길에, 그때까지 남아 있는 것과 부딪히는가.
+func _sweep_check(stage: StageDef, table: Dictionary) -> Array[String]:
+	const START := 0.04      ## 맞닿아 있는 것은 넘긴다
+	const EPS := 0.018       ## 이보다 얕게 스치는 것은 넘긴다
+	var out: Array[String] = []
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		if not pd.leaves_device() or not table.has(id):
+			continue
+		var dir: Vector3 = pd.remove_direction.normalized()
+		var dist: float = pd.remove_distance + 0.28     # game.gd 의 날아가는 거리
+		var box: AABB = (table[id]["aabb"] as AABB).grow(-0.012)
+		if box.size.x <= 0.0 or box.size.y <= 0.0 or box.size.z <= 0.0:
+			box = table[id]["aabb"]
+		var a: AABB = AABB(box.position + dir * START, box.size)
+		var swept: AABB = a.merge(AABB(box.position + dir * dist, box.size))
+
+		var gone := _blockers_closure(stage, id)
+		for other in table:
+			if other == id or gone.has(other):
+				continue
+			# 이 부품이 나갈 때 other 가 아직 붙어 있을 수 있는가
+			if stage.parts.has(other) and _blockers_closure(stage, other).has(id):
+				continue     # other 는 이것보다 나중이므로 지금은 아직 있지만
+			if not _overlaps(swept, table[other]["aabb"], EPS):
+				continue
+			if not _hits_faces(swept, table[other]["faces"]):
+				continue
+			out.append("%s 가 빠지는 길에 '%s' 를 뚫고 지나간다" % [id, other])
+	return out
+
+func _mesh_table(model_path: String) -> Dictionary:
+	var out: Dictionary = {}
 	if not ResourceLoader.exists(model_path):
 		return out
 	var packed: PackedScene = load(model_path)
 	if packed == null:
 		return out
 	var root := packed.instantiate()
-	_collect(root, out)
+	_collect(root, root, out)
 	root.free()
 	return out
 
-func _collect(node: Node, out: PackedStringArray) -> void:
-	if node is MeshInstance3D:
-		out.append(node.name)
+func _collect(node: Node, base: Node3D, out: Dictionary) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		var mi := node as MeshInstance3D
+		var xf := DeviceRig._relative_transform(mi, base)
+		var local := mi.mesh.get_aabb()
+		# 삼각형까지 들고 있어야 한다. 상자만 비교하면 속 빈 프레임(Body)은
+		# 언제나 겹친다고 나와 전부 오탐이 된다.
+		var faces := PackedVector3Array()
+		for v in mi.mesh.get_faces():
+			faces.append(xf * v)
+		out[mi.name] = {"origin": xf.origin, "aabb": xf * local, "faces": faces}
 	for c in node.get_children():
-		_collect(c, out)
+		_collect(c, base, out)
+
+## 두 상자가 세 축 모두에서 eps 이상 겹치는가. (싼 1차 거르개)
+static func _overlaps(a: AABB, b: AABB, eps: float) -> bool:
+	for i in 3:
+		var lo: float = maxf(a.position[i], b.position[i])
+		var hi: float = minf(a.position[i] + a.size[i], b.position[i] + b.size[i])
+		if hi - lo < eps:
+			return false
+	return true
+
+## 쓸고 지나간 상자가 상대의 **면** 을 실제로 건드리는가.
+## 꼭짓점이 안에 들어오거나 변이 상자를 가로지르면 부딪힌 것으로 본다.
+static func _hits_faces(box: AABB, faces: PackedVector3Array) -> bool:
+	var n := faces.size()
+	var i := 0
+	while i + 2 < n:
+		var a := faces[i]
+		var b := faces[i + 1]
+		var c := faces[i + 2]
+		if box.has_point(a) or box.has_point(b) or box.has_point(c):
+			return true
+		if box.intersects_segment(a, b) or box.intersects_segment(b, c) \
+				or box.intersects_segment(c, a):
+			return true
+		i += 3
+	return false
+
+## 이 부품보다 **먼저** 해결되어야 하는 것들 (그때 이미 사라진 것들).
+static func _blockers_closure(stage: StageDef, id: String) -> Dictionary:
+	var seen: Dictionary = {}
+	var queue: Array[String] = [id]
+	while not queue.is_empty():
+		var cur: String = queue.pop_back()
+		var pd: PartDef = stage.parts.get(cur)
+		if pd == null:
+			continue
+		for b in pd.blocked_by:
+			if seen.has(b):
+				continue
+			seen[b] = true
+			queue.append(b)
+	return seen
 
 func _run(args: PackedStringArray) -> void:
 	var path := _arg(args, "--shot")

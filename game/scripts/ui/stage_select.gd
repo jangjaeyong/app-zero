@@ -53,6 +53,11 @@ func _build() -> void:
 	back.pressed.connect(func() -> void: Session.goto_menu())
 	_content.add_child(back)
 
+## 안드로이드 뒤로 가기 → 메인으로.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		Session.goto_menu()
+
 func _total_text() -> String:
 	var cleared := 0
 	var total := 0

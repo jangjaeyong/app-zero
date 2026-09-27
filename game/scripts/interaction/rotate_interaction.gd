@@ -4,11 +4,13 @@ extends PartInteraction
 ## 막혀 있으면 resist_angle 만큼 덜컹거리고 되돌아온다.
 
 const TICK_DEGREES := 12.0
+const PIVOT_DEADZONE := 8.0
 
 var _axis_world: Vector3
 var _sign: float = 1.0                 ## 화면 회전 방향 → 축 회전 부호
 var _center: Vector2
 var _last_angle: float = 0.0
+var _has_reference: bool = false
 var _accum: float = 0.0                ## 목표 방향 기준 누적 각(항상 0 이상)
 var _applied: float = 0.0
 var _next_tick: float = TICK_DEGREES
@@ -35,16 +37,26 @@ func _on_begin() -> void:
 	part.set_outline(Part.OUTLINE_FREE if free else Part.OUTLINE_BLOCKED, 0.35)
 
 func set_start(screen_pos: Vector2) -> void:
-	_last_angle = _angle_at(screen_pos)
+	_grab_reference(screen_pos)
 
-func _angle_at(screen_pos: Vector2) -> float:
+## 중심 근처에서는 각을 잴 수 없다. 기준을 못 잡았으면 이번 프레임은 버린다 —
+## 0도를 기준으로 삼으면 손가락을 9px 옮긴 것이 180도 회전이 된다.
+func _grab_reference(screen_pos: Vector2) -> bool:
 	var v := screen_pos - _center
-	if v.length() < 8.0:
-		return _last_angle
-	return rad_to_deg(atan2(v.y, v.x))
+	if v.length() < PIVOT_DEADZONE:
+		return false
+	_last_angle = rad_to_deg(atan2(v.y, v.x))
+	_has_reference = true
+	return true
 
 func update(screen_pos: Vector2) -> void:
-	var a := _angle_at(screen_pos)
+	if not _has_reference:
+		_grab_reference(screen_pos)
+		return
+	var v := screen_pos - _center
+	if v.length() < PIVOT_DEADZONE:
+		return
+	var a: float = rad_to_deg(atan2(v.y, v.x))
 	var d: float = wrapf(a - _last_angle, -180.0, 180.0)
 	_last_angle = a
 

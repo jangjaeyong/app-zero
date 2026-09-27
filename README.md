@@ -14,10 +14,13 @@
 
 | | 장치 | 부품 | 조작 |
 |---|---|---|---|
-| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Press |
-| 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · Slide ×2 · Press ×2 · Rotate |
-| 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · Align ×2 · Slide ×2 · Press |
-| 04 | MK-04 ROUTING JUNCTION | 7 | Sequence ×3 · Route · Multi-step · Pull ×2 · Press |
+| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull · Rotate · Press |
+| 02 | MK-02 PRESSURE DRUM | 8 | + **Slide** |
+| 03 | MK-03 CALIBRATION CELL | 7 | + **Align** |
+| 04 | MK-04 IGNITION PANEL | 6 | + **Sequence** |
+| 05 | MK-04 ROUTING JUNCTION | 7 | + **Route** |
+
+한 판에 새 조작이 정확히 하나씩이다. Multi-step 은 보스에서 처음 나온다.
 
 ### 챕터 2 — REACTOR ROOM (위험 · 보스)
 
