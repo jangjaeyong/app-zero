@@ -1,10 +1,21 @@
 # ZERO — Disassemble to Discover
 
+> ## ⛔ 중단됨 (2026-09-28)
+>
+> 실기기 플레이 뒤 **재미 없음 · 긴장감 없음 · 그래픽 한계** 세 가지로 접었다.
+> 지우지 않고 남긴다 — **다음 Godot 작업의 참고용**이다.
+>
+> - 왜 접었고 다시 한다면 뭘 다르게 할지 → **[`docs/POSTMORTEM.md`](docs/POSTMORTEM.md)**
+> - Godot 4 에서 실제로 부딪힌 것 30여 건 → **[`docs/GODOT_NOTES.md`](docs/GODOT_NOTES.md)**
+> - 그대로 옮겨 쓸 수 있는 도구들 → `tools/`, `game/scripts/core/dev_harness.gd`
+>
+> 아래는 중단 시점의 상태 기록이다.
+
 3D 장치 해체 퍼즐. Godot 4.7 / Android 세로(9:16) / 패키지 `com.drake.zero`.
 
 기획 원문은 [`docs/prompts.md`](docs/prompts.md), 디자인 시안은 `docs/*.png`.
 구현 구조와 함정은 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-남은 일은 [`docs/TODO.md`](docs/TODO.md).
+남은 일이었던 것은 [`docs/TODO.md`](docs/TODO.md) (중단으로 진행하지 않음).
 
 ## 지금 상태
 
@@ -60,9 +71,11 @@ Pull · Slide · Rotate · Align · Press · Route · Sequence, 그리고 Multi-
 
 ## 실행
 
+처음 열 때는 에셋을 다시 가져와야 한다 (`.godot/` 캐시는 저장소에 없다).
+
 ```bash
+godot --headless --import --path game      # 처음 한 번
 godot --path game                          # 플레이
-godot --headless --import --path game      # 에셋 다시 가져오기
 godot --headless --path game -- --validate # 스테이지 데이터 검증
 tools/check_scripts.sh                     # 스크립트 컴파일 검증
 ```

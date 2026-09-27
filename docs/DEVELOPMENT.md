@@ -1,13 +1,13 @@
 # ZERO 개발 문서
 
-챕터 2개 · 스테이지 6판 시점 (2026-09-27).
+챕터 2개 · 스테이지 7판 시점 (2026-09-27). **프로젝트는 중단됐다** — [`POSTMORTEM.md`](POSTMORTEM.md).
 
 ---
 
 ## 1. 무엇을 만들었나
 
 버티컬 슬라이스로 손맛을 검증하고, 조작을 7종까지 늘리고, 긴장 구조를 넣고,
-그래픽을 한 번 올렸다. 지금은 챕터 2개 · 6판이 돈다.
+그래픽을 한 번 올렸다. 지금은 챕터 2개 · 7판이 돈다.
 
 재화·상점·컬렉션·광고·Daily 는 여전히 만들지 않았다 (기획서 15·17번).
 
@@ -21,9 +21,10 @@
 | 04 | MK-04 IGNITION PANEL | 6 | + **Sequence** |
 | 05 | MK-04 ROUTING JUNCTION | 7 | + **Route** |
 
-한 판에 새 조작이 정확히 하나씩이다. Multi-step 은 보스(챕터 2-02)에서 처음 나온다.
 | 챕터2-01 | MK-02R OVERHEATED DRUM | 8 | DANGER · 140초 |
 | 챕터2-02 | MK-04X PRIME JUNCTION | 7 | BOSS · 260초 · 여러 단계 |
+
+한 판에 새 조작이 정확히 하나씩이다. Multi-step 은 보스(챕터 2-02)에서 처음 나온다.
 
 챕터 2 는 **모델을 새로 만들지 않았다.** 같은 GLB 에 데이터만 다르게 준 판이다.
 스테이지 60판을 채울 때 이 방식이 크게 작용한다.
@@ -247,14 +248,14 @@ GDScript 는 한 줄도 안 고쳤다.** 주장이 아니라 확인된 사실이
 | 필드 | 설명 |
 |---|---|
 | `id` | GLB 의 Object 이름과 **정확히** 같아야 한다 |
-| `interaction` | `pull` / `rotate` / `hold` |
+| `interaction` | `pull` / `slide` / `rotate` / `align` / `press` / `route` / `sequence` |
 | `blocked_by` | 이것들이 다 빠져야 열린다 |
 | `remove_direction` | 빠지는 방향 (Godot 좌표, Y-up) |
 | `remove_distance` | 이만큼 당기면 빠진다 |
 | `resist_distance` | 막혔을 때 끌려오는 거리 |
 | `rotation_axis` / `rotation_target` | 회전축과 목표 각(부호가 방향) |
 | `resist_angle` | 막혔을 때 덜컹거리는 각 |
-| `hold_seconds` | 누르고 있어야 하는 시간 |
+| `press_seconds` | 누르고 있어야 하는 시간 |
 | `is_core` | true 면 트레이로 안 가고 안정화 연출로 간다 |
 | `resolve` | `remove`(빠짐) / `settle`(제자리에 남음). 안 적으면 조작 종류가 정한다 |
 | `slide_direction` / `slide_distance` | 밀기. `remove_*` 의 읽기 좋은 별칭 |
@@ -269,49 +270,9 @@ GDScript 는 한 줄도 안 고쳤다.** 주장이 아니라 확인된 사실이
 
 ## 5. 작업하다 걸린 것들
 
-기록해 둔다. 같은 데서 또 시간 쓰지 않으려고.
-
-### `.tscn` 의 Transform3D 는 행 우선이다
-
-`Transform3D(a,b,c, d,e,f, g,h,i, ox,oy,oz)` 의 9개 값은 basis 를 **행** 순서로
-적은 것이다. 열(기저 벡터) 순서로 적으면 전치돼서 들어간다.
-
-조명 3등을 전부 열 순서로 써 넣었더니 전혀 다른 방향을 비췄고, 흰 패널이
-앰비언트만 받아 회청색으로 나왔다. **재질 문제로 한참 헤맸다.**
-확인 방법은 실행 중에 `-light.global_transform.basis.z` 를 찍어 보는 것.
-
-### Color 는 인자 4개로
-
-`.tscn` 파서는 `Color(r,g,b)` 를 거부한다. 알파까지 적어야 한다.
-
-### 흰 패널을 metallic 으로 두면 안 된다
-
-도장면인데 `metallic = 0.28` 로 잡아 뒀더니 파란 하늘을 반사해서 파랗게 떴다.
-흰 판은 유전체다 (`metallic ≈ 0.04`).
-
-### 크기 0 은 금지
-
-트레이 팝인을 `scale = Vector3.ZERO` 로 시작했더니 행렬식이 0 이라
-`Condition "det == 0" is true` 가 쏟아졌다. `0.001` 로 시작한다.
-
-### `class_name` 은 다시 import 해야 잡힌다
-
-새 스크립트를 만든 뒤에는 `godot --headless --import` 를 한 번 돌려야
-전역 클래스 캐시에 등록된다. 안 그러면
-`Identifier "X" not declared in the current scope`.
-
-### 충돌 형상은 trimesh
-
-휜 냉각 튜브를 볼록 껍질로 만들면 앞면을 통째로 덮어 뒤 부품의 터치를
-가로챈다. 물리 시뮬레이션을 안 돌리니 (중력 0) `create_trimesh_shape()` 로
-정확하게 딴다.
-
-### 섀시 상부는 통판이면 안 된다
-
-상단 커버를 떼도 그 아래가 또 막혀 있어 기어 락이 안 드러났다.
-사각 프레임으로 바꿔 가운데를 뚫었다. **모델 형태가 퍼즐을 막을 수 있다.**
-
----
+[`GODOT_NOTES.md`](GODOT_NOTES.md) 로 옮겼다. Godot 4 에서 실제로 부딪힌 것
+30여 건을 모아 뒀다. 이 프로젝트와 무관하게 **다음 Godot 작업에서 먼저 읽을**
+문서다.
 
 ## 7. 개발 도구
 
