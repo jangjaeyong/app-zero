@@ -4,6 +4,7 @@
 
 기획 원문은 [`docs/prompts.md`](docs/prompts.md), 디자인 시안은 `docs/*.png`.
 구현 구조와 함정은 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+남은 일은 [`docs/TODO.md`](docs/TODO.md).
 
 ## 지금 상태
 
@@ -62,8 +63,12 @@ Pull · Slide · Rotate · Align · Press · Route · Sequence, 그리고 Multi-
 ```bash
 godot --path game                          # 플레이
 godot --headless --import --path game      # 에셋 다시 가져오기
-godot --headless --path game -- --validate # 스테이지·스크립트 검증
+godot --headless --path game -- --validate # 스테이지 데이터 검증
+tools/check_scripts.sh                     # 스크립트 컴파일 검증
 ```
+
+`--validate` 에 `--boxes` 를 붙이면 부품 경계 상자를 찍는다. 부품이 서로
+파고드는지 볼 때 쓴다.
 
 개발 빌드 단축키: `F1` 디버그 오버레이 · `F2` 픽 범위 · `F5` 리셋 · `ESC` 일시정지.
 
@@ -75,6 +80,16 @@ python3 tools/make_textures.py            # 표면 디테일 (노멀·거칠기�
 python3 tools/make_fx_textures.py         # 보케 · 연기 · 불꽃
 python3 tools/make_sfx.py                 # 효과음 11종
 python3 tools/make_icons.py               # 런처 아이콘 4종
+```
+
+화면 캡처 하네스 (실기기 없이 단계별 그림):
+
+```bash
+godot --path game --resolution 530x942 -- --shot a.png
+godot --path game --resolution 530x942 -- --shot b.png --goto select
+godot --path game --resolution 530x942 -- --shot c.png \
+    --goto game --stage res://resources/stages/stage_005.json --remove 3 --hint
+godot --path game --resolution 530x942 -- --shot d.png --goto game --clear
 ```
 
 전부 결정적이다. 소스는 스크립트고, GLB·PNG·WAV 는 산출물이다.

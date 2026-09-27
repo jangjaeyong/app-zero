@@ -387,6 +387,8 @@ godot --path game --resolution 530x942 -- --shot d.png --goto game --clear
 
 ## 9. 다음
 
+남은 일 전체 목록은 [`TODO.md`](TODO.md) 에 있다. 요약하면:
+
 1. **새 조작 셋을 실기기에서 확인.** Slide·Press·Align 은 논리는 맞는데
    손맛은 아직 아무도 안 만져 봤다. 특히 Align 은 "목표가 눈으로 읽히는가" 가
    전부다 — 안 읽히면 눈금 디자인을 다시 해야 한다.
