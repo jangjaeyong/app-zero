@@ -96,13 +96,22 @@ func _grab_surface_material() -> void:
 
 # --- 외곽선 -------------------------------------------------------------
 
-func set_outline(color: Color, alpha: float) -> void:
+func set_outline(color: Color, alpha: float, through: bool = false) -> void:
 	if _outline == null:
 		return
 	if _outline_tween != null and _outline_tween.is_valid():
 		_outline_tween.kill()
+	_set_through(through)
 	_outline.visible = alpha > 0.001
 	_outline_mat.albedo_color = Color(color, alpha)
+
+## 벽을 뚫고 보이게 할지. 가려진 부품을 가리킬 때 켠다.
+func _set_through(on: bool) -> void:
+	if _outline_mat == null:
+		return
+	_outline_mat.no_depth_test = on
+	_outline_mat.render_priority = 3 if on else 1
+	_outline_mat.grow_amount = 0.030 if on else 0.016
 
 func fade_outline(color: Color, alpha: float, time: float) -> void:
 	if _outline == null:
@@ -124,6 +133,8 @@ func flash_blocker() -> void:
 		return
 	if _outline_tween != null and _outline_tween.is_valid():
 		_outline_tween.kill()
+	# 무엇이 막고 있는지가 이 게임의 답이다. 안쪽에 있어도 보여야 한다.
+	_set_through(true)
 	_outline.visible = true
 	_outline_mat.albedo_color = Color(OUTLINE_BLOCKED, 0.0)
 	_outline_tween = create_tween()
@@ -133,11 +144,12 @@ func flash_blocker() -> void:
 		if is_instance_valid(_outline):
 			_outline.visible = false)
 
-func pulse(color: Color, cycles: int = 3) -> void:
+func pulse(color: Color, cycles: int = 3, through: bool = false) -> void:
 	if _outline == null:
 		return
 	if _outline_tween != null and _outline_tween.is_valid():
 		_outline_tween.kill()
+	_set_through(through)
 	_outline.visible = true
 	_outline_mat.albedo_color = Color(color, 0.0)
 	_outline_tween = create_tween()

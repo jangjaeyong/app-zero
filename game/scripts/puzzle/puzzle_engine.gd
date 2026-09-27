@@ -10,6 +10,7 @@ signal part_resolved(id: String)
 signal part_restored(id: String)
 signal newly_freed(ids: PackedStringArray)
 signal stage_cleared()
+signal group_reset(group: String)
 
 var stage: StageDef
 var _resolved: Dictionary = {}          ## id -> true
@@ -140,6 +141,8 @@ func reset_group(group: String) -> PackedStringArray:
 			_history.remove_at(at)
 		undone.append(id)
 		part_restored.emit(id)
+	if not undone.is_empty():
+		group_reset.emit(group)
 	return undone
 
 ## 힌트: 지금 건드릴 수 있는 것 중 하나. 코어는 마지막에만 고른다.

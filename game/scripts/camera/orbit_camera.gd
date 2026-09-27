@@ -79,11 +79,24 @@ func nudge_distance(amount: float) -> void:
 func frame_default() -> void:
 	_target_distance = default_distance
 
-## 특정 부품이 잘 보이도록 부드럽게 돌아본다 (힌트/새로 열린 부품용).
+## 특정 부품이 잘 보이도록 살짝 돌아본다 (힌트/새로 열린 부품용).
+##
+## 예전에는 부품을 정면으로 보도록 카메라를 통째로 옮겼는데,
+## 구도가 확 바뀌어서 플레이어가 방향을 잃었다. 지금 각도에서
+## 조금만 튼다.
+const LOOK_YAW_LIMIT := 34.0
+const LOOK_PITCH_LIMIT := 14.0
+
 func look_toward(world_pos: Vector3) -> void:
 	var local := world_pos - global_position
 	if local.length_squared() < 0.0001:
 		return
-	_target_yaw = rad_to_deg(atan2(local.x, local.z))
-	_target_pitch = clampf(rad_to_deg(asin(clampf(local.normalized().y, -1.0, 1.0))) + 12.0,
+	var want_yaw := rad_to_deg(atan2(local.x, local.z))
+	var delta := wrapf(want_yaw - _target_yaw, -180.0, 180.0)
+	_target_yaw += clampf(delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
+
+	var want_pitch := rad_to_deg(asin(clampf(local.normalized().y, -1.0, 1.0))) + 14.0
+	var pitch_delta := want_pitch - _target_pitch
+	_target_pitch = clampf(
+		_target_pitch + clampf(pitch_delta, -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT),
 		min_pitch, max_pitch)

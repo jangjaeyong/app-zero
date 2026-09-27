@@ -13,22 +13,30 @@ extends RefCounted
 signal changed(value: float, level: int)
 signal warned()
 signal relocked()
-signal overloaded()
+signal overloaded(strike: int, limit: int)
+signal detonated()
 
 enum Level { CALM, WARN, CRITICAL }
 
-const RISE_PER_FAIL := 0.155
-const RISE_REPEAT := 0.075      ## 같은 부품을 또 억지로 당기면 더 오른다
-const FALL_PER_RESOLVE := 0.30  ## 올바른 수는 장치를 진정시킨다
-const PASSIVE_DECAY := 0.010    ## 초당. 아주 느리게만 식는다
-const WARN_AT := 0.50
-const RELOCK_AT := 0.78
+## 처음 값은 너무 순했다. 과부하 한 번 보려면 틀린 시도가 아홉 번쯤 필요했고,
+## 그래서 "긴장감이 여전히 부족하다" 는 말을 들었다.
+## 사실상 일어나지 않는 일을 만들어 놓고 긴장이라고 부른 셈이다.
+const RISE_PER_FAIL := 0.225
+const RISE_REPEAT := 0.105      ## 같은 부품을 또 억지로 당기면 더 오른다
+const FALL_PER_RESOLVE := 0.16  ## 올바른 수는 진정시키지만, 되돌리진 못한다
+const PASSIVE_DECAY := 0.005    ## 초당. 거의 안 식는다
+const WARN_AT := 0.45
+const RELOCK_AT := 0.72
 const OVERLOAD_AT := 1.0
-const AFTER_RELOCK := 0.50
-const AFTER_OVERLOAD := 0.38
+const AFTER_RELOCK := 0.56
+const AFTER_OVERLOAD := 0.52
 
 var value: float = 0.0
 var overloads: int = 0          ## 과부하 횟수 = 잃은 별
+## 이 횟수를 채우면 장치가 터진다. 스테이지가 정한다 (기본 3).
+## 기획서 13번이 막은 것은 "**즉시** 게임오버" 다. 한 번 틀려서 죽는 게 아니라
+## 계속 틀려서 죽는 것은 다른 이야기다.
+var overload_limit: int = 3
 var enabled: bool = true
 
 var _last_failed: String = ""
@@ -96,8 +104,12 @@ func _check_thresholds() -> void:
 	if value >= OVERLOAD_AT:
 		overloads += 1
 		_locked_out = true
+		if overloads >= overload_limit:
+			_apply(1.0)
+			detonated.emit()
+			return
 		_apply(AFTER_OVERLOAD)
-		overloaded.emit()
+		overloaded.emit(overloads, overload_limit)
 		return
 	if value >= RELOCK_AT:
 		_locked_out = true
@@ -111,3 +123,8 @@ func _check_thresholds() -> void:
 ## 과부하로 잃은 별을 뺀 최종 별.
 func apply_star_penalty(stars: int) -> int:
 	return int(clampi(stars - overloads, 1, 3))
+
+## 남은 경고 횟수. 화면에 띄워서 죽는 것이 예고되게 한다 —
+## 모르고 죽으면 억울하다.
+func strikes_left() -> int:
+	return maxi(0, overload_limit - overloads)

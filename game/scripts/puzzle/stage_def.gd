@@ -20,6 +20,7 @@ const _MODES := {"normal": Mode.NORMAL, "danger": Mode.DANGER, "boss": Mode.BOSS
 var mode: Mode = Mode.NORMAL
 var time_limit: float = 0.0          ## 초. 0 이면 제한 없음
 var time_penalty: float = 5.0        ## 틀린 시도 한 번에 깎이는 초
+var overload_limit: int = 3          ## 이만큼 과부하 나면 폭발
 
 ## 카메라 구도. 장치 크기가 제각각이라 스테이지가 직접 정한다.
 var cam_distance: float = 3.95
@@ -56,6 +57,7 @@ static func load_from(path: String) -> StageDef:
 	s.mode = _MODES.get(String(d.get("mode", "normal")).to_lower(), Mode.NORMAL)
 	s.time_limit = float(d.get("time_limit", 0.0))
 	s.time_penalty = float(d.get("time_penalty", 5.0))
+	s.overload_limit = maxi(1, int(d.get("overload_limit", 3)))
 
 	var cam: Dictionary = d.get("camera", {})
 	s.cam_distance = float(cam.get("distance", s.cam_distance))

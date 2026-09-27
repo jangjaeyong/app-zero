@@ -11,7 +11,8 @@
         "res://resources/stages/stage_001.json",
         "res://resources/stages/stage_002.json",
         "res://resources/stages/stage_003.json",
-        "res://resources/stages/stage_004.json"
+        "res://resources/stages/stage_004.json",
+        "res://resources/stages/stage_005.json"
       ]
     },
     {
@@ -22,8 +23,8 @@
       "description": "열이 오르는 장치들. 시계가 돌고, 틀리면 시간이 깎인다.",
       "accent": "#FF7A2E",
       "stages": [
-        "res://resources/stages/stage_005.json",
-        "res://resources/stages/stage_006.json"
+        "res://resources/stages/stage_201.json",
+        "res://resources/stages/stage_202.json"
       ]
     },
     {

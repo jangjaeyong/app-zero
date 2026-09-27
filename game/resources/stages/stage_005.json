@@ -1,9 +1,9 @@
 {
   "id": "STAGE_005",
-  "chapter": "REACTOR_ROOM",
-  "index": 1,
-  "title": "MK-02R OVERHEATED DRUM",
-  "device_model": "res://assets/models/device_002.glb",
+  "chapter": "WORKSHOP",
+  "index": 5,
+  "title": "MK-04 ROUTING JUNCTION",
+  "device_model": "res://assets/models/device_004.glb",
   "static_nodes": [
     "Pedestal",
     "PedestalGlow",
@@ -11,160 +11,163 @@
     "Body"
   ],
   "win_condition": "all_parts_removed",
-  "par_moves": 8,
+  "par_moves": 7,
   "rewards": {
-    "coins": 300,
+    "coins": 220,
     "parts": 4,
-    "rare_parts": 2
+    "rare_parts": 1
   },
   "camera": {
-    "distance": 4.7,
-    "pitch": 20.0,
-    "yaw": -34.0,
-    "height": -0.3,
-    "min": 2.7,
-    "max": 6.2
+    "distance": 4.3,
+    "pitch": 12.0,
+    "yaw": -12.0,
+    "height": -0.26,
+    "min": 2.8,
+    "max": 6.0
   },
-  "mode": "danger",
-  "time_limit": 140.0,
-  "time_penalty": 6.0,
   "parts": [
     {
-      "id": "TopVent",
-      "label": "배기구",
+      "id": "AccessCover",
+      "label": "전면 덮개",
       "interaction": "pull",
       "blocked_by": [],
       "remove_direction": [
         0,
-        1,
-        0
+        0,
+        1
       ],
-      "remove_distance": 0.34,
+      "remove_distance": 0.4,
       "resist_distance": 0.04,
       "sfx_engage": "slide",
       "sfx_release": "snap"
     },
     {
-      "id": "SafetyLatchL",
-      "label": "좌측 안전 걸쇠",
-      "interaction": "slide",
+      "id": "IgnitionA",
+      "label": "점화 1",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 0,
       "blocked_by": [
-        "TopVent"
-      ],
-      "slide_direction": [
-        -1,
-        0,
-        0
-      ],
-      "slide_distance": 0.17,
-      "resist_distance": 0.022,
-      "sfx_engage": "slide",
-      "sfx_release": "lock_release"
-    },
-    {
-      "id": "SafetyLatchR",
-      "label": "우측 안전 걸쇠",
-      "interaction": "slide",
-      "blocked_by": [
-        "TopVent"
-      ],
-      "slide_direction": [
-        1,
-        0,
-        0
-      ],
-      "slide_distance": 0.17,
-      "resist_distance": 0.022,
-      "sfx_engage": "slide",
-      "sfx_release": "lock_release"
-    },
-    {
-      "id": "ReleaseButton",
-      "label": "배출 버튼",
-      "interaction": "press",
-      "blocked_by": [
-        "SafetyLatchL",
-        "SafetyLatchR"
+        "AccessCover"
       ],
       "remove_direction": [
         0,
         0,
         -1
       ],
-      "press_depth": 0.042,
-      "sfx_release": "snap",
-      "press_seconds": 0.55,
-      "sfx_engage": "core_hum"
-    },
-    {
-      "id": "OuterShell",
-      "label": "외피",
-      "interaction": "pull",
-      "blocked_by": [
-        "ReleaseButton"
-      ],
-      "remove_direction": [
-        0,
-        1,
-        0
-      ],
-      "remove_distance": 0.52,
-      "resist_distance": 0.045,
-      "sfx_engage": "slide",
+      "press_depth": 0.03,
       "sfx_release": "snap"
     },
     {
-      "id": "CollarRing",
-      "label": "고정 칼라",
+      "id": "IgnitionC",
+      "label": "점화 3",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 1,
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.03,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "IgnitionB",
+      "label": "점화 2",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 2,
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.03,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "PowerPlug",
+      "label": "전원 플러그",
+      "interaction": "route",
+      "blocked_by": [
+        "IgnitionA",
+        "IgnitionB",
+        "IgnitionC"
+      ],
+      "route_points": [
+        [
+          -0.28,
+          -0.04,
+          -0.31
+        ],
+        [
+          -0.28,
+          0.2,
+          -0.31
+        ],
+        [
+          0.06,
+          0.2,
+          -0.31
+        ],
+        [
+          0.06,
+          0.02,
+          -0.31
+        ],
+        [
+          0.3,
+          0.02,
+          -0.31
+        ]
+      ],
+      "route_tolerance": 0.2,
+      "sfx_engage": "slide",
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "CoreClamp",
+      "label": "코어 클램프",
       "interaction": "rotate",
       "blocked_by": [
-        "OuterShell"
+        "PowerPlug"
       ],
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release",
       "rotation_axis": [
         0,
         1,
         0
       ],
-      "rotation_target": -170.0,
-      "resist_angle": 9.0,
+      "rotation_target": 90.0,
+      "resist_angle": 8.0,
       "remove_direction": [
         0,
         1,
         0
       ],
-      "remove_distance": 0.3,
-      "sfx_tick": "ratchet",
-      "sfx_release": "lock_release"
-    },
-    {
-      "id": "CoolantPod",
-      "label": "냉각 포드",
-      "interaction": "pull",
-      "blocked_by": [
-        "CollarRing"
-      ],
-      "remove_direction": [
-        -1,
-        0,
-        0
-      ],
-      "remove_distance": 0.4,
-      "resist_distance": 0.03,
-      "sfx_engage": "slide",
-      "sfx_release": "lock_release"
+      "remove_distance": 0.38
     },
     {
       "id": "EnergyCore",
       "label": "에너지 코어",
       "interaction": "press",
       "blocked_by": [
-        "CoolantPod"
+        "CoreClamp"
       ],
+      "press_seconds": 1.8,
+      "press_depth": 0.0,
       "is_core": true,
       "sfx_engage": "core_hum",
-      "sfx_release": "stable",
-      "press_seconds": 1.8,
-      "press_depth": 0.0
+      "sfx_release": "stable"
     }
   ]
 }

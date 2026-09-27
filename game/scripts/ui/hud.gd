@@ -42,6 +42,11 @@ var _timer_label: Label
 var _timer_chip: PanelContainer
 var _mode_label: Label
 var _fail_layer: Control
+var _fail_title: Label
+var _fail_sub: Label
+var _vignette: DangerVignette
+var _strikes: HBoxContainer
+var _flash: ColorRect
 var _bar: InstabilityBar
 var _undo_left: int = 0
 var _hint_left: int = 0
@@ -62,6 +67,16 @@ func _ready() -> void:
 	_build_ring()
 	_build_tray()
 	_build_bottom()
+	_vignette = DangerVignette.new()
+	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(_vignette)
+
+	_flash = ColorRect.new()
+	_flash.color = Color(1, 1, 1, 0)
+	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_flash)
+
 	_build_clear_overlay()
 	_build_fail()
 	_build_pause()
@@ -111,8 +126,16 @@ func _build_top() -> void:
 	_moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	_bar = InstabilityBar.new()
-	UiStyle.anchor(_bar, 0, 0, 1, 0, 150, 168, -150, 216)
+	UiStyle.anchor(_bar, 0, 0, 1, 0, 150, 168, -260, 216)
 	_root.add_child(_bar)
+
+	# 남은 경고. 죽는 것이 예고돼야 한다 — 모르고 죽으면 억울하다.
+	_strikes = HBoxContainer.new()
+	_strikes.add_theme_constant_override("separation", 10)
+	_strikes.alignment = BoxContainer.ALIGNMENT_END
+	_strikes.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiStyle.anchor(_strikes, 1, 0, 1, 0, -250, 172, -150, 212)
+	_root.add_child(_strikes)
 
 	# 지금 만지고 있는 부품 이름. 짧게 떴다 사라지는 자막에 가깝다.
 	_part_label = UiStyle.label("", 30, Color(UiStyle.CYAN, 0.0), 3)
@@ -363,15 +386,15 @@ func _build_fail() -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_fail_layer.add_child(dim)
 
-	var title := UiStyle.label("CONTAINMENT FAILED", 52, UiStyle.DANGER, 10)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	UiStyle.anchor(title, 0, 0.36, 1, 0.36, 0, 0, 0, 80)
-	_fail_layer.add_child(title)
+	_fail_title = UiStyle.label("CONTAINMENT FAILED", 50, UiStyle.DANGER, 10)
+	_fail_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(_fail_title, 0, 0.36, 1, 0.36, 0, 0, 0, 80)
+	_fail_layer.add_child(_fail_title)
 
-	var sub := UiStyle.label("시간이 다 됐다", 26, Color(UiStyle.WHITE, 0.85), 4)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	UiStyle.anchor(sub, 0, 0.36, 1, 0.36, 0, 92, 0, 136)
-	_fail_layer.add_child(sub)
+	_fail_sub = UiStyle.label("", 26, Color(UiStyle.WHITE, 0.85), 4)
+	_fail_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(_fail_sub, 0, 0.36, 1, 0.36, 0, 92, 0, 136)
+	_fail_layer.add_child(_fail_sub)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
@@ -390,14 +413,41 @@ func _build_fail() -> void:
 	out.pressed.connect(func() -> void: select_pressed.emit())
 	row.add_child(out)
 
-func show_fail() -> void:
+func show_fail(title: String, reason: String) -> void:
 	if _fail_layer == null or _fail_layer.visible:
 		return
 	if _bottom_bar != null:
 		_bottom_bar.visible = false
+	_fail_title.text = title
+	_fail_sub.text = reason
 	_fail_layer.visible = true
+	if _vignette != null:
+		_vignette.intensity = 0.0
 	Sfx.play("overload", 0.0)
 	Haptics.bump()
+
+## 폭발 섬광. 실패 화면보다 이게 먼저 온다.
+func flash_white(strength: float = 0.9) -> void:
+	if _flash == null:
+		return
+	_flash.color = Color(1, 0.86, 0.72, strength)
+	var tw := create_tween()
+	tw.tween_property(_flash, "color:a", 0.0, 0.55)
+
+## 남은 경고 표시를 다시 그린다.
+func set_strikes(left: int, total: int) -> void:
+	if _strikes == null:
+		return
+	for c in _strikes.get_children():
+		c.queue_free()
+	for i in total:
+		var pip := UiStyle.label("▲", 24,
+			UiStyle.DANGER if i < left else Color(UiStyle.DIM, 0.28))
+		_strikes.add_child(pip)
+
+func set_danger_level(v: float) -> void:
+	if _vignette != null:
+		_vignette.intensity = v
 
 func is_failed() -> bool:
 	return _fail_layer != null and _fail_layer.visible
@@ -463,6 +513,9 @@ func set_time_left(seconds: float, danger: bool) -> void:
 func set_instability(value: float, level: int) -> void:
 	if _bar != null:
 		_bar.set_state(value, level)
+	# 게이지는 찾아가서 봐야 하지만 화면 테두리는 안 보려 해도 보인다.
+	set_danger_level(maxf(0.0, (value - Instability.WARN_AT)
+		/ maxf(1.0 - Instability.WARN_AT, 0.01)))
 
 ## 부품 이름을 잠깐 띄웠다 지운다.
 func flash_part_name(text: String, color: Color = UiStyle.CYAN) -> void:

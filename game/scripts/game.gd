@@ -27,6 +27,8 @@ var _instability: Instability
 var _fx: DeviceFx
 var _time_left: float = 0.0
 var _failed: bool = false
+var _alarm_cooldown: float = 0.0
+var _hint_guide: HintGuide
 var _undo_left: int = TOOL_UNDO
 var _hint_left: int = TOOL_HINT
 
@@ -44,6 +46,8 @@ func _ready() -> void:
 		push_error("[Game] 모델에 없는 부품: %s" % ", ".join(missing))
 
 	_instability = Instability.new()
+	_instability.overload_limit = stage.overload_limit
+	_instability.detonated.connect(_on_detonated)
 	_instability.changed.connect(_on_instability)
 	_instability.warned.connect(_on_warned)
 	_instability.relocked.connect(_on_relocked)
@@ -53,6 +57,7 @@ func _ready() -> void:
 	engine.part_resolved.connect(_on_part_resolved)
 	engine.newly_freed.connect(_on_newly_freed)
 	engine.part_restored.connect(_on_part_restored)
+	engine.group_reset.connect(_on_group_reset)
 	engine.stage_cleared.connect(_on_stage_cleared)
 
 	_ctx = InteractionContext.new()
@@ -70,6 +75,7 @@ func _ready() -> void:
 	hud.set_progress(0, 0)
 	hud.set_tools(_undo_left, _hint_left, false)
 	hud.set_instability(0.0, Instability.Level.CALM)
+	hud.set_strikes(_instability.strikes_left(), stage.overload_limit)
 	hud.undo_pressed.connect(_on_undo)
 	hud.hint_pressed.connect(_on_hint)
 	hud.reset_pressed.connect(_restart)
@@ -144,6 +150,7 @@ func _process(delta: float) -> void:
 	_tick_clock(delta)
 	if _instability != null and not _clearing:
 		_instability.tick(delta)
+		_tick_alarm(delta)
 
 	# 불안정한 코어는 계속 맥동한다. 마지막에 이게 멎는 게 보상이다.
 	# 장치가 화가 날수록 빨라지고 붉어진다 — 계기판보다 이게 먼저 읽힌다.
@@ -168,6 +175,16 @@ func _process(delta: float) -> void:
 	elif _rig.position != Vector3.ZERO:
 		_rig.position = Vector3.ZERO
 
+## 위태로울 때 경보가 반복해서 울린다. 조용하면 위험한 줄 모른다.
+func _tick_alarm(delta: float) -> void:
+	if _failed or _instability.level() != Instability.Level.CRITICAL:
+		_alarm_cooldown = 0.0
+		return
+	_alarm_cooldown -= delta
+	if _alarm_cooldown <= 0.0:
+		_alarm_cooldown = 1.5
+		Sfx.play("alarm", -14.0)
+
 ## 위험·보스 모드의 시계. 노멀에는 제한이 없다 (기획서 13·14번).
 func _tick_clock(delta: float) -> void:
 	if not stage.is_timed() or _clearing or _failed:
@@ -179,14 +196,15 @@ func _tick_clock(delta: float) -> void:
 	if _time_left <= 0.0:
 		_fail()
 
-func _fail() -> void:
+func _fail(title: String = "CONTAINMENT FAILED",
+		reason: String = "시간이 다 됐다") -> void:
 	if _failed:
 		return
 	_failed = true
 	router.input_locked = true
 	if _fx != null:
 		_fx.burst()
-	hud.show_fail()
+	hud.show_fail(title, reason)
 
 # --- 조작 결과 ----------------------------------------------------------
 
@@ -258,7 +276,7 @@ func _on_newly_freed(ids: PackedStringArray) -> void:
 				shown_groups[group] = true
 				_demo_sequence(group)
 			continue
-		p.pulse(Part.OUTLINE_FREE, 2)
+		p.pulse(Part.OUTLINE_FREE, 2, true)
 		Sfx.play("click", -14.0)
 
 ## 순서 시범. 그룹 구성원을 차례로 한 번 점등한다.
@@ -268,7 +286,7 @@ func _demo_sequence(group: String) -> void:
 		var p: Part = _rig.get_part(id)
 		if p == null:
 			continue
-		p.pulse(Part.OUTLINE_HINT, 1)
+		p.pulse(Part.OUTLINE_HINT, 1, true)
 		Sfx.play_varied("ratchet", -8.0)
 		await get_tree().create_timer(0.42).timeout
 
@@ -339,6 +357,17 @@ func _on_part_restored(id: String) -> void:
 	part.state = Part.State.IDLE
 	part.flash_blocker()
 
+## 순서를 틀렸다. 되돌리는 것으로 끝내면 눈 감고 찍는 게 된다.
+## 잠깐 뒤에 시범을 다시 보여 준다.
+func _on_group_reset(group: String) -> void:
+	if _clearing or _failed:
+		return
+	hud.flash_part_name("순서가 틀렸다", UiStyle.DANGER)
+	await get_tree().create_timer(0.85).timeout
+	if _clearing or _failed:
+		return
+	_demo_sequence(group)
+
 # --- 불안정도 ------------------------------------------------------------
 
 func _on_instability(value: float, level: int) -> void:
@@ -358,13 +387,46 @@ func _on_relocked() -> void:
 
 ## 100% — 과부하. 뜯은 것 둘이 도로 박히고 별 하나를 잃는다.
 ## 노멀에서는 여기까지다. 게임오버는 없다 (기획서 13번).
-func _on_overloaded() -> void:
+func _on_overloaded(strike: int, limit: int) -> void:
 	if _fx != null:
 		_fx.burst()
 	Sfx.play("overload", 0.0)
 	Haptics.success()
-	hud.flash_part_name("과부하 — 별 하나를 잃었다", UiStyle.DANGER)
+	hud.flash_white(0.45)
+	hud.set_strikes(_instability.strikes_left(), limit)
+	hud.flash_part_name("과부하 %d / %d — 한 번 더면 터진다" % [strike, limit],
+		UiStyle.DANGER)
 	_return_recent(2)
+
+## 경고를 다 쓰면 장치가 터진다.
+## 기획서 13번이 막은 것은 "**즉시** 게임오버" 다.
+## 한 번 틀려서 죽는 게 아니라 계속 틀려서 죽는 것은 다른 이야기다.
+func _on_detonated() -> void:
+	if _failed:
+		return
+	router.input_locked = true
+	if _fx != null:
+		_fx.burst()
+		_fx.set_heat(1.0)
+	hud.set_strikes(0, stage.overload_limit)
+	hud.flash_white(1.0)
+	Sfx.play("overload", 2.0)
+	Haptics.success()
+
+	# 장치가 한 번 크게 흔들리고 꺼진다. 그다음에 실패 화면.
+	var tw := create_tween()
+	tw.tween_method(func(t: float) -> void:
+			var k: float = (1.0 - t) * 0.09
+			_rig.position = Vector3(randf_range(-k, k), randf_range(-k, k),
+				randf_range(-k, k))
+			if _core != null and _core.has_surface_material():
+				_core.set_emission(Color(1.0, 0.22, 0.06), lerpf(16.0, 0.0, t)),
+		0.0, 1.0, 0.9)
+	tw.tween_callback(func() -> void:
+		_rig.position = Vector3.ZERO
+		if _fx != null:
+			_fx.stop_steam()
+		_fail("DEVICE DETONATED", "너무 많이 틀렸다"))
 
 func _return_recent(count: int) -> void:
 	if _clearing:
@@ -422,26 +484,96 @@ func _on_undo() -> void:
 	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 
 func _on_hint() -> void:
-	if _clearing or _hint_left <= 0:
+	if _clearing or _failed or _hint_left <= 0:
 		return
 	var id := engine.hint()
 	if id.is_empty():
 		return
-	_hint_left -= 1
-	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 	var part: Part = _rig.get_part(id)
 	if part == null:
 		return
-	part.pulse(Part.OUTLINE_HINT, 3)
+	_hint_left -= 1
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
+	Sfx.play("click", -6.0)
+	_show_hint(part)
+
+## 힌트는 세 가지를 한다: 어디인지, 어떻게 하는지, 뭐라고 부르는지.
+## 반짝이기만 하면 안쪽에 가려진 부품은 아무것도 안 보인다.
+func _show_hint(part: Part) -> void:
 	_orbit.look_toward(part.global_position)
-	hud.flash_part_name(part.def.label, UiStyle.AMBER)
-	Sfx.play("click", -8.0)
+
+	# 순서 퍼즐은 위치가 아니라 순서가 답이다. 시범을 다시 보여 준다.
+	var group := part.def.sequence_group
+	if not group.is_empty():
+		hud.flash_part_name("순서를 다시 보여 준다", UiStyle.AMBER)
+		_demo_sequence(group)
+		return
+
+	# 벽 뒤에 있어도 보이게 (through = true)
+	part.pulse(Part.OUTLINE_HINT, 4, true)
+	_spawn_hint_guide(part)
+	hud.flash_part_name("%s  ·  %s" % [part.def.label, _gesture_text(part)],
+		UiStyle.AMBER)
+
+func _spawn_hint_guide(part: Part) -> void:
+	if _hint_guide != null and is_instance_valid(_hint_guide):
+		_hint_guide.queue_free()
+	_hint_guide = HintGuide.new()
+	_hint_guide.name = "HintGuide"
+	add_child(_hint_guide)
+	_hint_guide.build_for(part, _rig, _orbit.camera)
+
+## 무엇을 하라는 것인지 말로도 알려 준다.
+func _gesture_text(part: Part) -> String:
+	var d := part.params()
+	match d.interaction:
+		PartDef.Interaction.PULL:
+			return "%s 당겨라" % _direction_word(part, d.remove_direction)
+		PartDef.Interaction.SLIDE:
+			return "%s 밀어라" % _direction_word(part, d.remove_direction)
+		PartDef.Interaction.ROTATE:
+			return "%s 끝까지 돌려라" % _turn_word(part, d)
+		PartDef.Interaction.ALIGN:
+			return "빛나는 눈금에 바늘을 맞추고 손을 떼라"
+		PartDef.Interaction.PRESS:
+			return "꾹 누르고 있어라"
+		PartDef.Interaction.ROUTE:
+			return "홈을 따라 끝 단자까지 끌어라"
+		PartDef.Interaction.SEQUENCE:
+			return "순서대로 눌러라"
+	return ""
+
+## 방향을 화면 기준으로 말한다. "월드 +X" 라고 해봐야 아무 소용 없다.
+func _direction_word(part: Part, dir: Vector3) -> String:
+	var cam := _orbit.camera
+	var origin := part.global_position
+	var world := (_rig.global_transform.basis * dir).normalized()
+	var a := cam.unproject_position(origin)
+	var b := cam.unproject_position(origin + world * 0.3)
+	var v := b - a
+	if v.length() < 24.0:
+		# 화면에서 거의 안 움직인다 = 카메라 축 방향
+		var toward := world.dot(-cam.global_transform.basis.z)
+		return "화면 안쪽으로" if toward > 0.0 else "화면 앞으로"
+	if absf(v.x) > absf(v.y):
+		return "왼쪽으로" if v.x < 0.0 else "오른쪽으로"
+	return "위로" if v.y < 0.0 else "아래로"
+
+func _turn_word(part: Part, d: PartDef) -> String:
+	var cam := _orbit.camera
+	var axis := (_rig.global_transform.basis * d.rotation_axis).normalized()
+	var toward := -signf(axis.dot(-cam.global_transform.basis.z))
+	if is_zero_approx(toward):
+		toward = 1.0
+	# 축이 화면 쪽을 향하면 양의 회전이 화면에서 반시계로 보인다
+	var clockwise: bool = (signf(d.rotation_target) * toward) < 0.0
+	return "시계 방향으로" if clockwise else "반시계 방향으로"
 
 func _pulse_free(color: Color, cycles: int) -> void:
 	for id in engine.free_parts():
 		var p: Part = _rig.get_part(id)
 		if p != null:
-			p.pulse(color, cycles)
+			p.pulse(color, cycles, true)
 
 func _restart() -> void:
 	get_tree().reload_current_scene()
@@ -469,6 +601,10 @@ func _debug_open_core() -> void:
 		else:
 			_fly_to_tray(p)
 			engine.mark_resolved(id)
+
+## 캡처용: 힌트를 한 번 쓴다.
+func debug_hint() -> void:
+	_on_hint()
 
 ## 캡처용: 불안정도를 원하는 값으로 올려 둔다.
 func debug_heat(value: float) -> void:

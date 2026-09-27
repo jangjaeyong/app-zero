@@ -219,6 +219,10 @@ func _run(args: PackedStringArray) -> void:
 		game.debug_heat(heat)
 		await _wait(0.7)
 
+	if args.has("--hint") and game != null and game.has_method("debug_hint"):
+		game.debug_hint()
+		await _wait(1.4)
+
 	if do_clear and game != null:
 		game._debug_open_core()
 		await _wait(6.5)
