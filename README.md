@@ -12,14 +12,28 @@
 
 | 스테이지 | 장치 | 부품 | 조작 |
 |---|---|---|---|
-| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Hold |
-| 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · **Slide ×2** · **Press** · Rotate · Hold |
-| 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · **Align ×2** · Slide ×2 · Hold |
+| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Press |
+| 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · **Slide ×2** · Press ×2 · Rotate |
+| 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · **Align ×2** · Slide ×2 · Press |
 
 조작법이 스테이지마다 하나씩 늘어난다 (기획서 3번).
+기획서의 9종 중 **Pull · Rotate · Slide · Press · Align** 5종이 들어갔다.
+Hold(두 손가락) · Route · Sequence · Multi-step 은 아직 없다.
 
-**아직 없음:** 재화 · 상점 · 컬렉션 · 광고 · 데일리 · Danger/Boss 모드,
-챕터 2~5 의 내용물, 노멀맵/텍스처.
+### 긴장 구조
+
+틀린 시도는 **불안정도**를 올린다. 올바른 수는 내린다. 78% 에서 열어 둔 잠금
+하나가 다시 걸리고, 100% 에서 과부하로 둘이 되돌려지며 별 하나를 잃는다.
+노멀에서 게임오버는 없다 (기획서 13번).
+
+시간으로는 올리지 않는다. 퍼즐은 오래 들여다보는 게임이고, 가만히 보는 사람을
+벌주면 안 된다. **틀린 행동만** 대가를 치른다.
+
+되돌리기·힌트는 각각 3개다 (시안 기준).
+
+**아직 없음:** 재화 · 상점 · 컬렉션 · 광고 · 데일리 · Danger/Boss 모드 ·
+설정 버튼 · Assist · AAB 배포 설정 · 챕터 2~5 의 내용물 ·
+**노멀맵 · 텍스처 · 배경 · 파티클**(기획서 8번. 시안과의 가장 큰 격차).
 
 ## 실행
 
