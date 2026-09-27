@@ -1,17 +1,15 @@
 # ZERO 개발 문서
 
-챕터 1 (스테이지 3개) 시점 기준.
+챕터 2개 · 스테이지 6판 시점 (2026-09-27).
 
 ---
 
 ## 1. 무엇을 만들었나
 
-버티컬 슬라이스(DEVICE_001)로 손맛을 검증한 뒤, 챕터 1 을 스테이지 3개까지
-넓혔다. 메인 화면 → 스테이지 선택 → 플레이 → 클리어 → 다음 스테이지가
-한 바퀴 돌고, 진행과 별이 저장된다.
+버티컬 슬라이스로 손맛을 검증하고, 조작을 7종까지 늘리고, 긴장 구조를 넣고,
+그래픽을 한 번 올렸다. 지금은 챕터 2개 · 6판이 돈다.
 
-재화·상점·컬렉션·광고·데일리·Danger/Boss 는 여전히 만들지 않았다
-(기획서 15·17번). 게임 자체부터 완성한다.
+재화·상점·컬렉션·광고·Daily 는 여전히 만들지 않았다 (기획서 15·17번).
 
 ### 조작법이 느는 방식 (기획서 3번)
 
@@ -20,6 +18,12 @@
 | 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Press |
 | 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · **Slide ×2** · Press ×2 · Rotate |
 | 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · **Align ×2** · Slide ×2 · Press |
+| 04 | MK-04 ROUTING JUNCTION | 7 | **Sequence ×3** · **Route** · **Multi-step** · Pull ×2 |
+| 챕터2-01 | MK-02R OVERHEATED DRUM | 8 | DANGER · 140초 |
+| 챕터2-02 | MK-04X PRIME JUNCTION | 7 | BOSS · 260초 · 여러 단계 |
+
+챕터 2 는 **모델을 새로 만들지 않았다.** 같은 GLB 에 데이터만 다르게 준 판이다.
+스테이지 60판을 채울 때 이 방식이 크게 작용한다.
 
 새 조작은 익숙한 조작 몇 번 뒤에 나온다. 한 스테이지에 새 조작을 둘 이상
 넣지 않는다.
@@ -64,6 +68,38 @@
 Press 를 길게 누르기로 고쳤고(진행 링 + 실제로 들어가는 버튼),
 두 손가락 Hold 는 아직 없다. `hold` 라는 이름은 예전 데이터 호환을 위해
 press 로 매핑만 남겼다.
+
+### 조작 7종의 차이
+
+| 조작 | 무엇을 보는가 | 끝나면 |
+|---|---|---|
+| Pull | 얼마나 당겼는가 | 빠져서 트레이로 |
+| Slide | 끝까지 밀었는가 | **제자리에 걸림** |
+| Rotate | 얼마나 돌렸는가 | 빠짐 |
+| Align | **어디에 세웠는가** | 제자리에 맞춰짐 |
+| Press | 얼마나 오래 눌렀는가 | 제자리에 눌림 |
+| Route | **경로를 따라갔는가** | 단자에 꽂힘 |
+| Sequence | **순서가 맞는가** | 눌림 (틀리면 그룹 전체 초기화) |
+
+Multi-step 은 조작이 아니라 **묶음**이다. `PartDef.steps` 에 단계마다 제 조작과
+값을 둔다. 단계는 부모 값을 물려받고 적힌 것만 덮어쓰므로 매번 다 안 적어도 된다.
+조작 클래스들은 `part.def` 가 아니라 **`part.params()`** 를 읽는다 —
+단계마다 방향·거리·조작이 다르기 때문이다.
+
+### Route 의 판정은 화면에서 한다
+
+경로 점들을 화면에 투영해 꺾은선을 만들고, 손가락이 그 위 어디쯤인지를 잰다.
+카메라가 어느 각도에 있든 똑같이 동작하고 3D 평면 투영을 안 해도 된다.
+경로에서 `DEVIATE_PX` 넘게 벗어나면 부품이 따라오지 않는다.
+
+**Route 는 목표가 눈에 보여야 성립한다.** MK-04 는 뒷벽에 홈을 파 넣고
+끝에 단자를 시안으로 밝혔다.
+
+### Sequence 는 한 번 보여 준다
+
+외우라고만 하면 불친절하다. 그룹이 열리는 순간 순서대로 한 번 점등한다
+(사이먼 게임과 같은 약속). 틀리면 그룹이 통째로 처음으로 돌아가고
+**쓴 수는 돌려주지 않는다.**
 
 ### Rotate 와 Align 의 차이
 
@@ -118,24 +154,60 @@ RightPanel (pull) ─┼──────────────────�
 
 ---
 
-## 3. 구조
+## 3. 모드 (기획서 14번)
+
+스테이지 JSON 의 `mode` 와 `time_limit` 이 정한다.
+
+- **normal** — 시간 제한 없음. 게임오버 없음
+- **danger** — 제한 시간 + **틀린 시도마다 시간이 깎인다** (기획서 13번 "시간 페널티")
+- **boss** — 거기에 배너와 여러 단계 부품이 더 붙는다
+
+제한 시간이 있으면 HUD 가 MOVES 를 접고 그 자리에 시계를 띄운다.
+위험 모드에서 플레이어가 봐야 할 숫자는 남은 시간이다.
+시간이 다 되면 `CONTAINMENT FAILED`.
+
+## 4. 그래픽
+
+### 표면 디테일 — UV 를 펴지 않는다
+
+장치를 60개 깎아야 하는데 Blender 에서 UV 를 일일이 펴면 장치당 반나절이
+날아간다. Godot 의 **삼중평면(triplanar) 매핑**은 좌표만으로 텍스처를 감는다.
+대신 타일링이 완벽해야 해서 격자 인덱스를 모듈러로 감은 노이즈를 쓴다
+(`tools/make_textures.py`).
+
+`MaterialDresser` 가 재질 이름(M_Panel, M_Gun, M_Steel, …)별로 다른 세기를
+입히고, `DeviceRig` 가 부품과 정적 구조물 전부에 자동으로 부른다.
+**새 장치를 만들 때 할 일이 없다.**
+
+### 배경
+
+멀리 있는 장비 실루엣 + 초점 나간 불빛 (`scripts/world/backdrop.gd`).
+실루엣은 무조명이고 불빛은 빌보드 쿼드 한 장씩이다. 안개가 멀수록 지워 준다.
+
+### 파티클
+
+코어 증기는 늘 있고 불안정도에 따라 양·속도·색이 바뀐다.
+과부하 때만 불꽃이 터진다. **늘 있는 효과는 아무 의미도 전달하지 못한다.**
+
+## 5. 구조
 
 ```
 game/scripts/
   core/        debug_flags · haptics · debug_overlay · dev_harness
-               progress_store(저장) · session(화면 전환)
+               progress_store · settings_store · session
   camera/      orbit_camera
   interaction/ touch_router · part_interaction(기반)
-               pull · slide · rotate · align · press · hold
-  puzzle/      part_def · stage_def · stage_catalog · puzzle_engine
-  device/      device_rig · part
-  ui/          hud · main_menu · stage_select · part_tray
-               progress_ring · ui_style
+               pull · slide · rotate · align · press · route · sequence
+  puzzle/      part_def · stage_def · stage_catalog · puzzle_engine · instability
+  device/      device_rig · part · material_dresser · device_fx
+  world/       backdrop
+  ui/          hud · main_menu · stage_select · settings_panel
+               part_tray · progress_ring · instability_bar · safe_area · ui_style
   audio/       sfx
   game.gd      위의 것들을 잇는 조립 지점
 ```
 
-오토로드: `Sfx` `Haptics` `DebugFlags` `Progress` `Session` `DevTools`.
+오토로드: `Sfx` `Haptics` `DebugFlags` `Progress` `Settings` `Session` `DevTools`.
 
 책임 분리:
 
@@ -149,7 +221,7 @@ game/scripts/
 
 ---
 
-## 4. 새 스테이지 추가하기
+## 5-1. 새 스테이지 추가하기
 
 코드를 고치지 않는다 (기획서 10번). **DEVICE_002 를 이 방식으로만 추가했고
 GDScript 는 한 줄도 안 고쳤다.** 주장이 아니라 확인된 사실이다.
@@ -239,7 +311,7 @@ GDScript 는 한 줄도 안 고쳤다.** 주장이 아니라 확인된 사실이
 
 ---
 
-## 6. 개발 도구
+## 7. 개발 도구
 
 | | |
 |---|---|
@@ -258,10 +330,13 @@ godot --headless --path game -- --validate
 
 모든 스테이지에 대해 확인한다.
 
+- **조작 클래스 7종이 컴파일되는가** (게임 씬을 열기 전에 잡는다)
 - GLB 에 부품·정적 노드 메시가 실제로 있는가
 - 의존 관계를 따라가면 **정말 끝까지 풀리는가**
 - 기준 수가 부품 수보다 적지 않은가 (별 3개가 가능한가)
 - 코어가 정확히 하나인가
+- 경로 점이 2개 이상인가
+- **순서 그룹 번호가 0부터 빠짐없이 이어지는가** (하나라도 비면 영원히 안 끝난다)
 
 `StageDef.load_from()` 이 읽을 때 `blocked_by` 오타와 **순환**도 따로 잡는다.
 스테이지가 늘어나면 손으로 확인할 수 없다. 데이터가 게임을 정의하니
@@ -295,18 +370,18 @@ godot --path game --resolution 530x942 -- --shot d.png --goto game --clear
 
 ---
 
-## 8. 기획서 대조 — 아직 안 된 것 (2026-09-27)
+## 8. 기획서 대조 — 아직 안 된 것 (2026-09-27 갱신)
 
-- **조작 9종 중 4종 없음** — Hold(두 손가락) · Route · Sequence · Multi-step
-- **그래픽 (기획서 8번)** — Normal Map · Texture · 배경 · Particle 전부 없음.
-  **시안과의 가장 큰 격차**
-- **AAB 배포 구조** — 지금은 미리 빌드된 템플릿으로 APK 만. Gradle 빌드 필요
-- **설정(settings) 버튼 · Assist 버튼** (기획서 15번 상단/하단 목록)
-- **Danger · Boss · Daily 모드** (기획서 14번). 시간 페널티와 이동 횟수 증가를
-  여기서 쓴다
+- **Hold** — 한 부품을 고정하면서 다른 부품 조작 (두 손가락).
+  핀치 줌과 손가락이 겹쳐서 구분 규칙을 먼저 정해야 한다
+- **AAB 배포 구조** — 형님 지시로 보류. 스토어 올리기 직전에 한다
+- **Daily Device** (기획서 14번)
+- **Assist 버튼** (기획서 15번 하단 3개 중 하나). 무엇을 하는 건지 정해야 한다
 - **"연결된 다른 부품이 같이 움직임"** 피드백 (기획서 4번)
+- **이동 횟수 증가** 페널티 (기획서 13번)
+- 챕터 3~5 의 내용물
 - m.flux 미사용 — 텍스처·컨셉 생성에 쓸 수 있다
-- Collision Shape 표시는 실제 와이어프레임이 아니라 부품 외곽선으로 대신함
+- Collision Shape 표시는 와이어프레임이 아니라 부품 외곽선으로 대신함
 
 ## 9. 다음
 
