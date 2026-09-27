@@ -12,7 +12,7 @@ var _travel: float = 0.0
 var _engaged_sfx: bool = false
 
 func _on_begin() -> void:
-	_world_dir = (part.get_parent().global_transform.basis * part.def.remove_direction).normalized()
+	_world_dir = (part.get_parent().global_transform.basis * part.params().remove_direction).normalized()
 	var axis := screen_axis_of(_world_dir)
 	_screen_dir = axis["dir"]
 	_px_per_unit = axis["px_per_unit"]
@@ -29,26 +29,26 @@ func update(screen_pos: Vector2) -> void:
 	var raw: float = px / maxf(_px_per_unit, 1.0)
 
 	if free:
-		_travel = clampf(raw, 0.0, part.def.remove_distance)
+		_travel = clampf(raw, 0.0, part.params().remove_distance)
 		if not _engaged_sfx and _travel > 0.012:
 			_engaged_sfx = true
-			Sfx.play_varied(part.def.sfx_engage, -6.0)
+			Sfx.play_varied(part.params().sfx_engage, -6.0)
 			Haptics.tick()
 	else:
 		# 걸림. 저항 한계에 가까워질수록 안 움직인다.
-		var limit: float = part.def.resist_distance
+		var limit: float = part.params().resist_distance
 		var eased: float = limit * (1.0 - exp(-maxf(raw, 0.0) / maxf(limit, 0.001)))
 		_travel = clampf(eased, 0.0, limit)
 		if raw > limit * 0.75:
 			_reject(_world_dir)
 
-	part.position = _home + part.def.remove_direction * _travel
+	part.position = _home + part.params().remove_direction * _travel
 
-	if free and _travel >= part.def.remove_distance - 0.0001:
+	if free and _travel >= part.params().remove_distance - 0.0001:
 		_complete()
 
 func _on_finish() -> void:
-	if free and _travel >= part.def.remove_distance * 0.72:
+	if free and _travel >= part.params().remove_distance * 0.72:
 		# 충분히 당겼으면 놓아도 빠진다. 끝까지 끌게 강요하지 않는다.
 		_complete()
 		return

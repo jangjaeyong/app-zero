@@ -17,8 +17,8 @@ var _target: float = 120.0
 
 func _on_begin() -> void:
 	_home_basis = part.home_transform.basis
-	_target = absf(part.def.rotation_target)
-	_axis_world = (part.get_parent().global_transform.basis * part.def.rotation_axis).normalized()
+	_target = absf(part.params().rotation_target)
+	_axis_world = (part.get_parent().global_transform.basis * part.params().rotation_axis).normalized()
 
 	# 축이 화면 쪽을 향하면 화면상 시계방향이 축 기준 음의 회전이 된다.
 	var cam_forward := -ctx.camera.global_transform.basis.z
@@ -26,7 +26,7 @@ func _on_begin() -> void:
 	if is_zero_approx(toward):
 		toward = 1.0
 	# rotation_target 의 부호가 "어느 쪽으로 돌려야 하는가"다.
-	_sign = -toward * signf(part.def.rotation_target)
+	_sign = -toward * signf(part.params().rotation_target)
 
 	_center = ctx.camera.unproject_position(part.global_position)
 	_accum = 0.0
@@ -51,16 +51,16 @@ func update(screen_pos: Vector2) -> void:
 	# 목표 방향으로 돈 만큼만 쌓는다. 반대로 돌리면 도로 줄어든다.
 	_accum = maxf(0.0, _accum + d * _sign)
 
-	var limit: float = _target if free else part.def.resist_angle
+	var limit: float = _target if free else part.params().resist_angle
 	_applied = minf(_accum, limit)
 
-	if not free and _accum > part.def.resist_angle * 0.8:
+	if not free and _accum > part.params().resist_angle * 0.8:
 		_reject(Vector3.ZERO)
 
 	_apply_rotation(_applied)
 
 	while free and _applied >= _next_tick and _next_tick < _target:
-		Sfx.play_varied(part.def.sfx_tick, -9.0)
+		Sfx.play_varied(part.params().sfx_tick, -9.0)
 		Haptics.tick()
 		_next_tick += TICK_DEGREES
 
@@ -70,8 +70,8 @@ func update(screen_pos: Vector2) -> void:
 		_complete()
 
 func _apply_rotation(degrees: float) -> void:
-	var signed: float = degrees * signf(part.def.rotation_target)
-	var basis := _home_basis * Basis(part.def.rotation_axis.normalized(), deg_to_rad(signed))
+	var signed: float = degrees * signf(part.params().rotation_target)
+	var basis := _home_basis * Basis(part.params().rotation_axis.normalized(), deg_to_rad(signed))
 	part.transform = Transform3D(basis, part.home_transform.origin)
 
 func _on_finish() -> void:

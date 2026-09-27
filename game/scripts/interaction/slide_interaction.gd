@@ -16,7 +16,7 @@ func _on_finish() -> void:
 		part.settle_home()
 		return
 
-	if _travel >= part.def.remove_distance * LATCH_FRACTION:
+	if _travel >= part.params().remove_distance * LATCH_FRACTION:
 		_latch()
 		return
 
@@ -26,7 +26,7 @@ func _on_finish() -> void:
 	Sfx.play_varied("slide", -12.0)
 
 func _latch() -> void:
-	var target: Vector3 = _home + part.def.remove_direction * part.def.remove_distance
+	var target: Vector3 = _home + part.params().remove_direction * part.params().remove_distance
 	part.set_outline(Part.OUTLINE_FREE, 0.0)
 	var tw := part.create_tween()
 	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

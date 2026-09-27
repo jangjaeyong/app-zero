@@ -1,0 +1,185 @@
+{
+  "id": "STAGE_004",
+  "chapter": "WORKSHOP",
+  "index": 4,
+  "title": "MK-04 ROUTING JUNCTION",
+  "device_model": "res://assets/models/device_004.glb",
+  "static_nodes": [
+    "Pedestal",
+    "PedestalGlow",
+    "PedestalTop",
+    "Body"
+  ],
+  "win_condition": "all_parts_removed",
+  "par_moves": 7,
+  "rewards": {
+    "coins": 220,
+    "parts": 4,
+    "rare_parts": 1
+  },
+  "camera": {
+    "distance": 4.3,
+    "pitch": 12.0,
+    "yaw": -12.0,
+    "height": -0.26,
+    "min": 2.8,
+    "max": 6.0
+  },
+  "parts": [
+    {
+      "id": "AccessCover",
+      "label": "전면 덮개",
+      "interaction": "pull",
+      "blocked_by": [],
+      "remove_direction": [
+        0,
+        0,
+        1
+      ],
+      "remove_distance": 0.4,
+      "resist_distance": 0.04,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "IgnitionA",
+      "label": "점화 1",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 0,
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.03,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "IgnitionC",
+      "label": "점화 3",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 1,
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.03,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "IgnitionB",
+      "label": "점화 2",
+      "interaction": "sequence",
+      "sequence_group": "ignition",
+      "sequence_index": 2,
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.03,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "PowerPlug",
+      "label": "전원 플러그",
+      "interaction": "route",
+      "blocked_by": [
+        "IgnitionA",
+        "IgnitionB",
+        "IgnitionC"
+      ],
+      "route_points": [
+        [
+          -0.28,
+          -0.04,
+          -0.31
+        ],
+        [
+          -0.28,
+          0.2,
+          -0.31
+        ],
+        [
+          0.06,
+          0.2,
+          -0.31
+        ],
+        [
+          0.06,
+          0.02,
+          -0.31
+        ],
+        [
+          0.3,
+          0.02,
+          -0.31
+        ]
+      ],
+      "route_tolerance": 0.16,
+      "sfx_engage": "slide",
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "CoreClamp",
+      "label": "코어 클램프",
+      "interaction": "rotate",
+      "blocked_by": [
+        "PowerPlug"
+      ],
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release",
+      "steps": [
+        {
+          "interaction": "rotate",
+          "rotation_axis": [
+            0,
+            1,
+            0
+          ],
+          "rotation_target": 90.0,
+          "resist_angle": 8.0,
+          "resolve": "settle"
+        },
+        {
+          "interaction": "pull",
+          "remove_direction": [
+            0,
+            1,
+            0
+          ],
+          "remove_distance": 0.38,
+          "resist_distance": 0.03,
+          "resolve": "remove",
+          "sfx_engage": "slide"
+        }
+      ]
+    },
+    {
+      "id": "EnergyCore",
+      "label": "에너지 코어",
+      "interaction": "press",
+      "blocked_by": [
+        "CoreClamp"
+      ],
+      "press_seconds": 1.8,
+      "press_depth": 0.0,
+      "is_core": true,
+      "sfx_engage": "core_hum",
+      "sfx_release": "stable"
+    }
+  ]
+}

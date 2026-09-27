@@ -50,6 +50,7 @@ func _ready() -> void:
 	engine = PuzzleEngine.new(stage)
 	engine.part_resolved.connect(_on_part_resolved)
 	engine.newly_freed.connect(_on_newly_freed)
+	engine.part_restored.connect(_on_part_restored)
 	engine.stage_cleared.connect(_on_stage_cleared)
 
 	_ctx = InteractionContext.new()
@@ -168,6 +169,15 @@ func _on_part_engaged(part: Part) -> void:
 func _on_part_completed(part: Part) -> void:
 	Sfx.play_varied(part.def.sfx_release, -3.0)
 	Haptics.release()
+	# 여러 단계 부품은 아직 끝난 게 아니다. 다음 단계로만 넘어간다.
+	if part.advance_step():
+		Sfx.play_varied("lock_release", -8.0)
+		Haptics.tick()
+		part.pulse(Part.OUTLINE_FREE, 1)
+		hud.flash_part_name("%s  %d / %d" % [part.def.label,
+			part.step_index + 1, part.def.step_count()], UiStyle.CYAN)
+		return
+
 	if part.def.is_core:
 		_stabilize_core(part)
 		return
@@ -200,11 +210,31 @@ func _on_part_resolved(id: String) -> void:
 ## 이번 제거로 새로 열린 부품을 짧게 점등. "안쪽에 또 뭐가 있네" 의 신호.
 func _on_newly_freed(ids: PackedStringArray) -> void:
 	await get_tree().create_timer(0.34).timeout
+	var shown_groups: Dictionary = {}
 	for id in ids:
 		var p: Part = _rig.get_part(id)
-		if p != null and not engine.is_resolved(id):
-			p.pulse(Part.OUTLINE_FREE, 2)
-			Sfx.play("click", -14.0)
+		if p == null or engine.is_resolved(id):
+			continue
+		var group := (stage.parts[id] as PartDef).sequence_group
+		if not group.is_empty():
+			# 순서를 외우라고만 하면 불친절하다. 열리는 순간 한 번 보여 준다.
+			if not shown_groups.has(group):
+				shown_groups[group] = true
+				_demo_sequence(group)
+			continue
+		p.pulse(Part.OUTLINE_FREE, 2)
+		Sfx.play("click", -14.0)
+
+## 순서 시범. 그룹 구성원을 차례로 한 번 점등한다.
+func _demo_sequence(group: String) -> void:
+	hud.flash_part_name("순서를 기억해라", UiStyle.AMBER)
+	for id in engine.members_of(group):
+		var p: Part = _rig.get_part(id)
+		if p == null:
+			continue
+		p.pulse(Part.OUTLINE_HINT, 1)
+		Sfx.play_varied("ratchet", -8.0)
+		await get_tree().create_timer(0.42).timeout
 
 ## 빠지지 않고 제자리에 남는 부품. 밀린 걸쇠, 눌린 버튼, 맞춰진 기어.
 ## 위치는 조작 쪽에서 이미 잡아 놨다. 여기서는 "됐다"는 신호만 준다.
@@ -259,6 +289,19 @@ func _on_stage_cleared() -> void:
 	var penalty: int = _instability.overloads if _instability != null else 0
 	var stars := Progress.record_clear(stage.id, engine.moves, stage.par_moves, penalty)
 	hud.play_clear_sequence(engine.moves, stage.par_moves, stars, Session.has_next())
+
+## 엔진이 어떤 이유로든 해결을 취소했을 때 (순서 오류, 벌칙, 되돌리기).
+## 여기서는 순서 그룹만 챙긴다 — 나머지는 각자 부르는 쪽에서 처리한다.
+func _on_part_restored(id: String) -> void:
+	var def: PartDef = stage.parts.get(id)
+	if def == null or def.sequence_group.is_empty():
+		return
+	var part: Part = _rig.get_part(id)
+	if part == null:
+		return
+	part.reset_to_origin()
+	part.state = Part.State.IDLE
+	part.flash_blocker()
 
 # --- 불안정도 ------------------------------------------------------------
 

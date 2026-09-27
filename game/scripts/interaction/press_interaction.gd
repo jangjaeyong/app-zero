@@ -21,7 +21,7 @@ func _on_begin() -> void:
 	if not free:
 		part.set_outline(Part.OUTLINE_BLOCKED, 0.45)
 		_bounce()
-		_reject(part.def.remove_direction)
+		_reject(part.params().remove_direction)
 		return
 	part.set_outline(Part.OUTLINE_FREE, 0.4)
 
@@ -39,17 +39,17 @@ func tick(delta: float) -> void:
 		return
 	if not _sound_started:
 		_sound_started = true
-		if not part.def.sfx_engage.is_empty():
-			Sfx.play(part.def.sfx_engage, -4.0)
+		if not part.params().sfx_engage.is_empty():
+			Sfx.play(part.params().sfx_engage, -4.0)
 	_held += delta
-	var span: float = maxf(part.def.press_seconds, 0.05)
+	var span: float = maxf(part.params().press_seconds, 0.05)
 	var t: float = clampf(_held / span, 0.0, 1.0)
 	progress_changed.emit(t)
 	part.set_outline(Part.OUTLINE_FREE, 0.3 + 0.6 * t)
 
 	# 누르는 동안 실제로 들어간다. 코어처럼 깊이가 없는 것은 대신 맥동한다.
-	if part.def.press_depth > 0.0:
-		part.position = _home + part.def.remove_direction * (part.def.press_depth * t)
+	if part.params().press_depth > 0.0:
+		part.position = _home + part.params().remove_direction * (part.params().press_depth * t)
 	else:
 		part.scale = Vector3.ONE * (1.0 + 0.05 * sin(_held * 26.0) * t)
 
@@ -59,7 +59,7 @@ func tick(delta: float) -> void:
 
 ## 안 눌리는 버튼: 조금 들어갔다 바로 나온다.
 func _bounce() -> void:
-	var dir: Vector3 = part.def.remove_direction * (part.def.press_depth * 0.35)
+	var dir: Vector3 = part.params().remove_direction * (part.params().press_depth * 0.35)
 	var tw := part.create_tween()
 	tw.tween_property(part, "position", _home + dir, 0.05)
 	tw.tween_property(part, "position", _home, 0.09)
@@ -69,5 +69,5 @@ func _on_finish() -> void:
 	part.scale = Vector3.ONE
 	part.set_outline(Part.OUTLINE_FREE, 0.0)
 	progress_changed.emit(0.0)
-	if free and part.def.press_depth > 0.0:
+	if free and part.params().press_depth > 0.0:
 		part.settle_home(0.12)

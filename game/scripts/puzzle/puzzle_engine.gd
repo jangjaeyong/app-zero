@@ -96,6 +96,52 @@ func undo(refund_move: bool = true) -> String:
 func is_cleared() -> bool:
 	return _resolved.size() >= stage.part_order.size()
 
+# --- 순서 그룹 -----------------------------------------------------------
+
+## 이 그룹에서 지금 눌러야 할 차례인가.
+func sequence_expects(group: String, index: int) -> bool:
+	if group.is_empty():
+		return true
+	return index == group_progress(group)
+
+## 그룹에서 이미 해결된 개수 = 다음에 와야 할 번호.
+func group_progress(group: String) -> int:
+	var n := 0
+	for id in members_of(group):
+		if _resolved.has(id):
+			n += 1
+	return n
+
+## 그룹 구성원을 순서대로.
+func members_of(group: String) -> PackedStringArray:
+	var out: Array[String] = []
+	for id in stage.part_order:
+		var p: PartDef = stage.parts[id]
+		if p.sequence_group == group and not group.is_empty():
+			out.append(id)
+	out.sort_custom(func(a: String, b: String) -> bool:
+		return (stage.parts[a] as PartDef).sequence_index \
+			< (stage.parts[b] as PartDef).sequence_index)
+	var packed := PackedStringArray()
+	for id in out:
+		packed.append(id)
+	return packed
+
+## 순서를 틀렸다. 그룹을 처음으로 되돌린다.
+## 쓴 수는 돌려주지 않는다 — 틀린 것은 대가가 있어야 한다.
+func reset_group(group: String) -> PackedStringArray:
+	var undone := PackedStringArray()
+	for id in members_of(group):
+		if not _resolved.has(id):
+			continue
+		_resolved.erase(id)
+		var at := _history.find(id)
+		if at >= 0:
+			_history.remove_at(at)
+		undone.append(id)
+		part_restored.emit(id)
+	return undone
+
 ## 힌트: 지금 건드릴 수 있는 것 중 하나. 코어는 마지막에만 고른다.
 func hint() -> String:
 	var free := free_parts()

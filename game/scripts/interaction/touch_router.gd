@@ -129,7 +129,7 @@ func _on_release(index: int) -> void:
 
 func _begin_interaction(part: Part, pos: Vector2) -> void:
 	var inter: PartInteraction
-	match part.def.interaction:
+	match part.active_interaction():
 		PartDef.Interaction.PULL:
 			inter = PullInteraction.new()
 		PartDef.Interaction.ROTATE:
@@ -140,6 +140,10 @@ func _begin_interaction(part: Part, pos: Vector2) -> void:
 			inter = PressInteraction.new()
 		PartDef.Interaction.ALIGN:
 			inter = AlignInteraction.new()
+		PartDef.Interaction.ROUTE:
+			inter = RouteInteraction.new()
+		PartDef.Interaction.SEQUENCE:
+			inter = SequenceInteraction.new()
 		_:
 			inter = PullInteraction.new()
 

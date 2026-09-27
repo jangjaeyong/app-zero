@@ -10,7 +10,8 @@
       "stages": [
         "res://resources/stages/stage_001.json",
         "res://resources/stages/stage_002.json",
-        "res://resources/stages/stage_003.json"
+        "res://resources/stages/stage_003.json",
+        "res://resources/stages/stage_004.json"
       ]
     },
     {

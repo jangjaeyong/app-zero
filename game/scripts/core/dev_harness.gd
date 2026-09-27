@@ -81,7 +81,35 @@ func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 		fails.append("기준 %d수 < 부품 %d개 — 별 3개가 불가능하다"
 			% [stage.par_moves, stage.part_order.size()])
 
-	# 4) 코어는 정확히 하나
+	# 4) 경로 조작: 점이 2개 미만이면 끌 데가 없다
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		for si in pd.step_count():
+			var sd := pd.step_at(si)
+			if sd.interaction == PartDef.Interaction.ROUTE \
+					and sd.route_points.size() < 2:
+				fails.append("%s 의 route_points 가 %d개다 (2개 이상)"
+					% [id, sd.route_points.size()])
+
+	# 5) 순서 그룹: 번호가 0부터 빠짐없이 이어져야 한다.
+	#    하나라도 비면 그 그룹은 영원히 안 끝난다.
+	var groups: Dictionary = {}
+	for id in stage.part_order:
+		var pd: PartDef = stage.parts[id]
+		if pd.sequence_group.is_empty():
+			continue
+		var g: Array = groups.get(pd.sequence_group, [])
+		g.append(pd.sequence_index)
+		groups[pd.sequence_group] = g
+	for g_name in groups:
+		var idx: Array = groups[g_name]
+		idx.sort()
+		var want := range(idx.size())
+		if idx != want:
+			fails.append("순서 그룹 '%s' 의 번호가 %s 다 (0부터 %d 까지여야 한다)"
+				% [g_name, str(idx), idx.size() - 1])
+
+	# 6) 코어는 정확히 하나
 	var cores := 0
 	for id in stage.part_order:
 		if (stage.parts[id] as PartDef).is_core:
@@ -91,8 +119,11 @@ func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 
 	var kinds: Dictionary = {}
 	for id in stage.part_order:
-		var k := (stage.parts[id] as PartDef).interaction_name()
-		kinds[k] = int(kinds.get(k, 0)) + 1
+		var pd: PartDef = stage.parts[id]
+		# 여러 단계 부품은 단계마다 조작이 다르다. 전부 센다.
+		for si in pd.step_count():
+			var k := pd.step_at(si).interaction_name()
+			kinds[k] = int(kinds.get(k, 0)) + 1
 	var kind_text := ""
 	for k in kinds:
 		kind_text += "%s×%d " % [k, kinds[k]]

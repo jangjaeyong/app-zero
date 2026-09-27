@@ -23,6 +23,7 @@ var _surface_mat: StandardMaterial3D
 var _base_emission: Color = Color.BLACK
 var _base_emission_energy: float = 0.0
 var align_angle: float = 0.0        ## 맞추기 부품이 지금 돌아가 있는 각(도)
+var step_index: int = 0             ## 여러 단계 부품이 지금 몇 번째인가
 var _shake_tween: Tween
 var _outline_tween: Tween
 
@@ -164,6 +165,28 @@ func shake(axis: Vector3 = Vector3.ZERO) -> void:
 	_shake_tween.tween_property(self, "position", home + dir * 0.35, 0.045)
 	_shake_tween.tween_property(self, "position", home, 0.06)
 
+## 지금 단계의 값 묶음. 조작 클래스들은 def 가 아니라 이걸 읽는다 —
+## 여러 단계 부품은 단계마다 방향·거리·조작이 다르다.
+func params() -> PartDef:
+	return def.step_at(step_index)
+
+## 지금 단계의 조작 종류.
+func active_interaction() -> int:
+	return params().interaction
+
+func is_last_step() -> bool:
+	return step_index >= def.step_count() - 1
+
+## 다음 단계로. 남은 단계가 있으면 true.
+func advance_step() -> bool:
+	if is_last_step():
+		return false
+	step_index += 1
+	# 단계가 바뀌면 지금 자리가 다음 단계의 출발점이다.
+	commit_home()
+	align_angle = 0.0
+	return true
+
 ## 지금 자리를 새 기준점으로 삼는다. 밀려 들어간 걸쇠는 여기가 제자리다.
 func commit_home() -> void:
 	home_transform = transform
@@ -173,6 +196,7 @@ func reset_to_origin() -> void:
 	if _shake_tween != null and _shake_tween.is_valid():
 		_shake_tween.kill()
 	align_angle = 0.0
+	step_index = 0
 	home_transform = origin_transform
 	transform = origin_transform
 	scale = Vector3.ONE
