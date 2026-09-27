@@ -24,6 +24,7 @@ var _slot_of: Dictionary = {}          ## part id -> 트레이 칸
 const TOOL_UNDO := 3                   ## 시안 기준. 무제한이면 고민할 이유가 없다
 const TOOL_HINT := 3
 var _instability: Instability
+var _fx: DeviceFx
 var _undo_left: int = TOOL_UNDO
 var _hint_left: int = TOOL_HINT
 
@@ -83,6 +84,10 @@ func _ready() -> void:
 	router.interaction_progress.connect(func(v: float) -> void: hud.ring.value = v)
 	add_child(router)
 
+	_fx = DeviceFx.new()
+	_fx.name = "DeviceFx"
+	add_child(_fx)
+
 	_core = _rig.get_part(_core_id())
 	if _core != null:
 		_core.set_emission(Color(1.0, 0.45, 0.08), 8.0)
@@ -91,6 +96,7 @@ func _ready() -> void:
 		var lamp := get_node_or_null("CoreLight") as OmniLight3D
 		if lamp != null:
 			lamp.global_position = _core.global_position
+		_fx.follow(_core.global_position)
 
 	if DebugFlags.available:
 		overlay = DebugOverlay.new()
@@ -138,6 +144,9 @@ func _process(delta: float) -> void:
 		var e: float = 6.5 + 3.0 * sin(_core_phase * 5.2) + 1.2 * sin(_core_phase * 13.7)
 		var col := Color(1.0, 0.45, 0.08).lerp(Color(1.0, 0.16, 0.06), heat)
 		_core.set_emission(col, e * (1.0 + heat * 0.5))
+
+	if _fx != null and not _core_stable:
+		_fx.set_heat(_instability.value if _instability != null else 0.0)
 
 	# 위태로울 때는 장치 전체가 미세하게 떤다.
 	if _instability != null and not _clearing:
@@ -230,6 +239,9 @@ func _stabilize_core(part: Part) -> void:
 	_clearing = true
 	router.input_locked = true
 	_core_stable = true
+	if _fx != null:
+		_fx.set_heat(0.0)
+		_fx.stop_steam()
 
 	var tw := create_tween()
 	# 주황 → 시안. 회전이 잦아들고 빛이 가라앉는다.
@@ -268,6 +280,8 @@ func _on_relocked() -> void:
 ## 100% — 과부하. 뜯은 것 둘이 도로 박히고 별 하나를 잃는다.
 ## 노멀에서는 여기까지다. 게임오버는 없다 (기획서 13번).
 func _on_overloaded() -> void:
+	if _fx != null:
+		_fx.burst()
 	Sfx.play("overload", 0.0)
 	Haptics.success()
 	hud.flash_part_name("과부하 — 별 하나를 잃었다", UiStyle.DANGER)

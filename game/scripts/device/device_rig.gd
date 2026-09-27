@@ -31,6 +31,10 @@ func build(stage_def: StageDef) -> PackedStringArray:
 	_parts_root.name = "Parts"
 	add_child(_parts_root)
 
+	# 표면 디테일은 부품과 정적 구조물 모두에 입힌다.
+	# 여기 한 번만 부르면 새 장치도 자동으로 입혀진다.
+	_dress_all(_model_root)
+
 	for id in stage.part_order:
 		var node := _model_root.find_child(id, true, false)
 		if node == null or not (node is MeshInstance3D):
@@ -58,6 +62,12 @@ func _wrap(def: PartDef, mesh: MeshInstance3D) -> void:
 
 	part.setup(def, mesh)
 	parts[def.id] = part
+
+static func _dress_all(node: Node) -> void:
+	if node is MeshInstance3D:
+		MaterialDresser.dress(node)
+	for c in node.get_children():
+		_dress_all(c)
 
 ## 노드의 변환을 기준 노드 기준으로 누적한다.
 ## 트리에 들어가기 전이라 global_transform 을 못 믿는 시점에도 쓸 수 있다.

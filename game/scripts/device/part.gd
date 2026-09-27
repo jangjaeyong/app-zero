@@ -80,12 +80,18 @@ func _grab_surface_material() -> void:
 	## 공유할 수 있다. 사본을 만들어 이 부품에만 덮어쓴다.
 	if mesh == null or mesh.mesh == null or mesh.mesh.get_surface_count() == 0:
 		return
-	var src := mesh.mesh.surface_get_material(0)
-	if src is StandardMaterial3D:
+	# MaterialDresser 가 이미 사본을 덮어씌워 뒀다. 또 복제하면 디테일이 날아간다.
+	var existing := mesh.get_surface_override_material(0)
+	if existing is StandardMaterial3D:
+		_surface_mat = existing
+	else:
+		var src := mesh.mesh.surface_get_material(0)
+		if not (src is StandardMaterial3D):
+			return
 		_surface_mat = (src as StandardMaterial3D).duplicate()
 		mesh.set_surface_override_material(0, _surface_mat)
-		_base_emission = _surface_mat.emission
-		_base_emission_energy = _surface_mat.emission_energy_multiplier
+	_base_emission = _surface_mat.emission
+	_base_emission_energy = _surface_mat.emission_energy_multiplier
 
 # --- 외곽선 -------------------------------------------------------------
 

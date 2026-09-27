@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" path="res://scripts/world/backdrop.gd" id="9_backdrop"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat_lab"]
 sky_top_color = Color(0.067, 0.094, 0.157, 1)
@@ -37,6 +38,9 @@ script = ExtResource("1_menu")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_main")
+
+[node name="Backdrop" type="Node3D" parent="."]
+script = ExtResource("9_backdrop")
 
 [node name="KeyLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.672673, 0.403368, -0.620327, -0, 0.838348, 0.545136, 0.73994, -0.366698, 0.563934, 0, 3, 0)
