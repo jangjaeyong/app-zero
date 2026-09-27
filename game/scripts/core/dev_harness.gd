@@ -157,6 +157,12 @@ func _run(args: PackedStringArray) -> void:
 		if game != null:
 			game._debug_force_remove()
 		await _wait(0.45)
+	# 부품을 뺄 때마다 게이지가 내려간다. 캡처용 heat 는 다 뺀 뒤에 올려야 보인다.
+	var heat := float(_arg(args, "--heat", "0"))
+	if heat > 0.0 and game != null and game.has_method("debug_heat"):
+		game.debug_heat(heat)
+		await _wait(0.7)
+
 	if do_clear and game != null:
 		game._debug_open_core()
 		await _wait(6.5)

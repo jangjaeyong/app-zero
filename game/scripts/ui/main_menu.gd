@@ -37,6 +37,7 @@ func _build_ui() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
+	SafeArea.bind(root)
 
 	# ── 워드마크 ──────────────────────────────────────────────────
 	var title := UiStyle.label("ZERO", 132, UiStyle.WHITE, 30)

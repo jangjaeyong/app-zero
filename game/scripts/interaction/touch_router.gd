@@ -134,8 +134,6 @@ func _begin_interaction(part: Part, pos: Vector2) -> void:
 			inter = PullInteraction.new()
 		PartDef.Interaction.ROTATE:
 			inter = RotateInteraction.new()
-		PartDef.Interaction.HOLD:
-			inter = HoldInteraction.new()
 		PartDef.Interaction.SLIDE:
 			inter = SlideInteraction.new()
 		PartDef.Interaction.PRESS:

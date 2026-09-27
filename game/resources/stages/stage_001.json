@@ -17,6 +17,14 @@
     "parts": 3,
     "rare_parts": 1
   },
+  "camera": {
+    "pitch": 21.0,
+    "yaw": -34.0,
+    "height": -0.34,
+    "min": 2.6,
+    "distance": 4.55,
+    "max": 6.0
+  },
   "parts": [
     {
       "id": "LeftPanel",
@@ -149,14 +157,15 @@
     {
       "id": "EnergyCore",
       "label": "에너지 코어",
-      "interaction": "hold",
+      "interaction": "press",
       "blocked_by": [
         "GearLock"
       ],
-      "hold_seconds": 1.8,
       "is_core": true,
       "sfx_engage": "core_hum",
-      "sfx_release": "stable"
+      "sfx_release": "stable",
+      "press_seconds": 1.8,
+      "press_depth": 0.0
     }
   ]
 }

@@ -11,6 +11,7 @@ config/version="1.0.1"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
+config/quit_on_go_back=false
 boot_splash/bg_color=Color(0.043, 0.055, 0.094, 1)
 boot_splash/show_image=false
 
@@ -32,6 +33,9 @@ window/size/window_height_override=960
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+window/energy_saving/keep_screen_on=true
+
+window/subwindows/embed_subwindows=true
 
 [input_devices]
 

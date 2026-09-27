@@ -33,8 +33,8 @@ static func stars_for(moves: int, par: int) -> int:
 		return 2
 	return 1
 
-func record_clear(stage_id: String, moves: int, par: int) -> int:
-	var stars := stars_for(moves, par)
+func record_clear(stage_id: String, moves: int, par: int, penalty: int = 0) -> int:
+	var stars: int = clampi(stars_for(moves, par) - penalty, 1, 3)
 	var prev: Dictionary = _cfg.get_value(SECTION, stage_id, {})
 	# 더 잘한 기록만 덮어쓴다.
 	var best_moves: int = moves

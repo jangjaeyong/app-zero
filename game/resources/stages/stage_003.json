@@ -18,12 +18,12 @@
     "rare_parts": 1
   },
   "camera": {
-    "distance": 4.7,
+    "distance": 5.35,
     "pitch": 30.0,
     "yaw": -30.0,
     "height": -0.24,
     "min": 3.2,
-    "max": 6.2
+    "max": 6.8
   },
   "parts": [
     {
@@ -134,14 +134,15 @@
     {
       "id": "EnergyCore",
       "label": "에너지 코어",
-      "interaction": "hold",
+      "interaction": "press",
       "blocked_by": [
         "FuelRod"
       ],
-      "hold_seconds": 1.8,
       "is_core": true,
       "sfx_engage": "core_hum",
-      "sfx_release": "stable"
+      "sfx_release": "stable",
+      "press_seconds": 1.8,
+      "press_depth": 0.0
     }
   ]
 }

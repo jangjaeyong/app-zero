@@ -7,10 +7,13 @@ extends Control
 const CARD_HEIGHT := 150
 
 var _list: VBoxContainer
+var _content: Control
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_build()
+	# 배경은 화면 끝까지, 내용은 안전 영역 안으로.
+	SafeArea.bind(_content)
 
 func _build() -> void:
 	var bg := ColorRect.new()
@@ -19,18 +22,23 @@ func _build() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
+	_content = Control.new()
+	_content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_content)
+
 	var title := UiStyle.label("CHAPTERS", 44, UiStyle.WHITE, 14)
 	UiStyle.anchor(title, 0, 0, 1, 0, 52, 56, -52, 120)
-	add_child(title)
+	_content.add_child(title)
 
 	var total := UiStyle.label(_total_text(), 22, Color(UiStyle.DIM, 0.9), 4)
 	UiStyle.anchor(total, 0, 0, 1, 0, 54, 126, -52, 166)
-	add_child(total)
+	_content.add_child(total)
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	UiStyle.anchor(scroll, 0, 0, 1, 1, 40, 200, -40, -160)
-	add_child(scroll)
+	_content.add_child(scroll)
 
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -43,7 +51,7 @@ func _build() -> void:
 	var back := UiStyle.button("← 메인", 30, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
 	UiStyle.anchor(back, 0, 1, 1, 1, 40, -130, -40, -40)
 	back.pressed.connect(func() -> void: Session.goto_menu())
-	add_child(back)
+	_content.add_child(back)
 
 func _total_text() -> String:
 	var cleared := 0

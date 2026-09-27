@@ -21,6 +21,12 @@ var _core_phase: float = 0.0
 var _clearing: bool = false
 var _slot_of: Dictionary = {}          ## part id -> 트레이 칸
 
+const TOOL_UNDO := 3                   ## 시안 기준. 무제한이면 고민할 이유가 없다
+const TOOL_HINT := 3
+var _instability: Instability
+var _undo_left: int = TOOL_UNDO
+var _hint_left: int = TOOL_HINT
+
 func _ready() -> void:
 	stage = StageDef.load_from(_stage_path())
 	if stage == null:
@@ -33,6 +39,12 @@ func _ready() -> void:
 	var missing := _rig.build(stage)
 	if not missing.is_empty():
 		push_error("[Game] 모델에 없는 부품: %s" % ", ".join(missing))
+
+	_instability = Instability.new()
+	_instability.changed.connect(_on_instability)
+	_instability.warned.connect(_on_warned)
+	_instability.relocked.connect(_on_relocked)
+	_instability.overloaded.connect(_on_overloaded)
 
 	engine = PuzzleEngine.new(stage)
 	engine.part_resolved.connect(_on_part_resolved)
@@ -49,13 +61,17 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup_stage(stage)
 	hud.set_progress(0, 0)
-	hud.set_undo_enabled(false)
+	hud.set_tools(_undo_left, _hint_left, false)
+	hud.set_instability(0.0, Instability.Level.CALM)
 	hud.undo_pressed.connect(_on_undo)
 	hud.hint_pressed.connect(_on_hint)
 	hud.reset_pressed.connect(_restart)
 	hud.replay_pressed.connect(_restart)
 	hud.next_pressed.connect(func() -> void: Session.play_next())
 	hud.select_pressed.connect(func() -> void: Session.goto_select())
+	# 일시정지 중에는 3D 조작이 먹으면 안 된다.
+	hud.paused.connect(func() -> void: router.input_locked = true)
+	hud.resumed.connect(func() -> void: router.input_locked = not _clearing)
 
 	router = TouchRouter.new()
 	router.name = "TouchRouter"
@@ -111,11 +127,26 @@ func _core_id() -> String:
 	return ""
 
 func _process(delta: float) -> void:
+	if _instability != null and not _clearing:
+		_instability.tick(delta)
+
 	# 불안정한 코어는 계속 맥동한다. 마지막에 이게 멎는 게 보상이다.
+	# 장치가 화가 날수록 빨라지고 붉어진다 — 계기판보다 이게 먼저 읽힌다.
 	if _core != null and not _core_stable and _core.has_surface_material():
-		_core_phase += delta
+		var heat: float = _instability.value if _instability != null else 0.0
+		_core_phase += delta * (1.0 + heat * 2.4)
 		var e: float = 6.5 + 3.0 * sin(_core_phase * 5.2) + 1.2 * sin(_core_phase * 13.7)
-		_core.set_emission(Color(1.0, 0.45, 0.08), e)
+		var col := Color(1.0, 0.45, 0.08).lerp(Color(1.0, 0.16, 0.06), heat)
+		_core.set_emission(col, e * (1.0 + heat * 0.5))
+
+	# 위태로울 때는 장치 전체가 미세하게 떤다.
+	if _instability != null and not _clearing:
+		var shake: float = maxf(0.0, _instability.value - Instability.WARN_AT) * 0.014
+		if shake > 0.0:
+			_rig.position = Vector3(randf_range(-shake, shake), 0.0,
+				randf_range(-shake, shake))
+		elif _rig.position != Vector3.ZERO:
+			_rig.position = Vector3.ZERO
 
 # --- 조작 결과 ----------------------------------------------------------
 
@@ -139,17 +170,21 @@ func _on_part_completed(part: Part) -> void:
 
 ## 막혔다. 말로 알리지 않는다 — 부품은 걸려서 되돌아가고,
 ## 막고 있는 놈이 붉게 점등한다 (기획서 4번).
-func _on_part_rejected(_part: Part, blockers: PackedStringArray) -> void:
+func _on_part_rejected(part: Part, blockers: PackedStringArray) -> void:
 	Sfx.play_varied("clack", -4.0)
 	Haptics.bump()
+	if _instability != null:
+		_instability.fail(part.def.id)
 	for id in blockers:
 		var b: Part = _rig.get_part(id)
 		if b != null:
 			b.flash_blocker()
 
 func _on_part_resolved(id: String) -> void:
+	if _instability != null:
+		_instability.resolve()
 	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
-	hud.set_undo_enabled(not engine.history().is_empty())
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 	if overlay != null:
 		overlay.set_selected("")
 
@@ -209,17 +244,76 @@ func _stabilize_core(part: Part) -> void:
 	tw.tween_callback(func() -> void: engine.mark_resolved(part.def.id))
 
 func _on_stage_cleared() -> void:
-	var stars := Progress.record_clear(stage.id, engine.moves, stage.par_moves)
+	var penalty: int = _instability.overloads if _instability != null else 0
+	var stars := Progress.record_clear(stage.id, engine.moves, stage.par_moves, penalty)
 	hud.play_clear_sequence(engine.moves, stage.par_moves, stars, Session.has_next())
+
+# --- 불안정도 ------------------------------------------------------------
+
+func _on_instability(value: float, level: int) -> void:
+	hud.set_instability(value, level)
+
+func _on_warned() -> void:
+	Sfx.play("alarm", -8.0)
+	Haptics.bump()
+	hud.flash_part_name("장치가 불안정하다", UiStyle.AMBER)
+
+## 75% — 열어 둔 잠금 하나가 다시 걸린다 (기획서 13번 "새로운 잠금 활성화").
+func _on_relocked() -> void:
+	Sfx.play("relock", -2.0)
+	Haptics.bump()
+	hud.flash_part_name("잠금이 다시 걸렸다", UiStyle.DANGER)
+	_return_recent(1)
+
+## 100% — 과부하. 뜯은 것 둘이 도로 박히고 별 하나를 잃는다.
+## 노멀에서는 여기까지다. 게임오버는 없다 (기획서 13번).
+func _on_overloaded() -> void:
+	Sfx.play("overload", 0.0)
+	Haptics.success()
+	hud.flash_part_name("과부하 — 별 하나를 잃었다", UiStyle.DANGER)
+	_return_recent(2)
+
+func _return_recent(count: int) -> void:
+	if _clearing:
+		return
+	router.input_locked = true
+	for i in count:
+		var id := engine.undo(false)      # 진행만 잃는다. 쓴 수는 남는다
+		if id.is_empty():
+			break
+		_return_to_device(id)
+		await get_tree().create_timer(0.16).timeout
+	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
+	await get_tree().create_timer(0.4).timeout
+	if _instability != null:
+		_instability.hold(false)
+	router.input_locked = _clearing or hud.is_paused()
+
+func _return_to_device(id: String) -> void:
+	var part: Part = _rig.get_part(id)
+	if part == null:
+		return
+	if _slot_of.has(id):
+		hud.tray.release(part, _rig.parts_root())
+		_slot_of.erase(id)
+	else:
+		part.reset_to_origin()
+	part.state = Part.State.IDLE
+	part.flash_blocker()
+	part.shake(part.def.remove_direction)
 
 # --- 버튼 ---------------------------------------------------------------
 
 func _on_undo() -> void:
 	if _clearing:
 		return
+	if _undo_left <= 0:
+		return
 	var id := engine.undo()
 	if id.is_empty():
 		return
+	_undo_left -= 1
 	var part: Part = _rig.get_part(id)
 	if part != null:
 		if _slot_of.has(id):
@@ -232,14 +326,16 @@ func _on_undo() -> void:
 		part.pulse(Part.OUTLINE_HINT, 1)
 	Sfx.play_varied("slide", -8.0)
 	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
-	hud.set_undo_enabled(not engine.history().is_empty())
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 
 func _on_hint() -> void:
-	if _clearing:
+	if _clearing or _hint_left <= 0:
 		return
 	var id := engine.hint()
 	if id.is_empty():
 		return
+	_hint_left -= 1
+	hud.set_tools(_undo_left, _hint_left, not engine.history().is_empty())
 	var part: Part = _rig.get_part(id)
 	if part == null:
 		return
@@ -281,9 +377,28 @@ func _debug_open_core() -> void:
 			_fly_to_tray(p)
 			engine.mark_resolved(id)
 
+## 캡처용: 불안정도를 원하는 값으로 올려 둔다.
+func debug_heat(value: float) -> void:
+	if _instability == null:
+		return
+	_instability.hold(true)
+	_instability.force_value(value)
+	_instability.hold(false)
+
 ## 캡처용: 카메라를 원하는 각도로 돌려놓는다.
 func debug_spin(yaw_degrees: float) -> void:
 	_orbit._target_yaw = yaw_degrees
+
+## 안드로이드 뒤로 가기 버튼. 앱이 그냥 꺼지면 안 된다.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if hud == null:
+		return
+	if hud.is_paused():
+		hud.close_pause()
+	else:
+		hud.open_pause()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not DebugFlags.available:
@@ -292,6 +407,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if k == null or not k.pressed or k.echo:
 		return
 	match k.keycode:
+		KEY_ESCAPE:
+			if hud.is_paused():
+				hud.close_pause()
+			else:
+				hud.open_pause()
 		KEY_F1:
 			DebugFlags.toggle_overlay()
 		KEY_F2:

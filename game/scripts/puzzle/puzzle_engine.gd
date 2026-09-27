@@ -81,12 +81,15 @@ func mark_resolved(id: String) -> void:
 		stage_cleared.emit()
 
 ## 되돌리기. 마지막 한 수만 되돌린다.
-func undo() -> String:
+## refund_move 가 false 면 수를 돌려주지 않는다 — 벌칙으로 되돌릴 때 쓴다.
+## 진행만 잃고 쓴 수는 남아야 아프다.
+func undo(refund_move: bool = true) -> String:
 	if _history.is_empty():
 		return ""
 	var id: String = _history.pop_back()
 	_resolved.erase(id)
-	moves = max(0, moves - 1)
+	if refund_move:
+		moves = max(0, moves - 1)
 	part_restored.emit(id)
 	return id
 

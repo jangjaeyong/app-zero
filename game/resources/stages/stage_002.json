@@ -18,12 +18,12 @@
     "rare_parts": 1
   },
   "camera": {
-    "distance": 4.05,
+    "distance": 4.7,
     "pitch": 20.0,
     "yaw": -34.0,
     "height": -0.3,
     "min": 2.7,
-    "max": 5.6
+    "max": 6.2
   },
   "parts": [
     {
@@ -89,7 +89,9 @@
         -1
       ],
       "press_depth": 0.042,
-      "sfx_release": "snap"
+      "sfx_release": "snap",
+      "press_seconds": 0.55,
+      "sfx_engage": "core_hum"
     },
     {
       "id": "OuterShell",
@@ -151,14 +153,15 @@
     {
       "id": "EnergyCore",
       "label": "에너지 코어",
-      "interaction": "hold",
+      "interaction": "press",
       "blocked_by": [
         "CoolantPod"
       ],
-      "hold_seconds": 1.8,
       "is_core": true,
       "sfx_engage": "core_hum",
-      "sfx_release": "stable"
+      "sfx_release": "stable",
+      "press_seconds": 1.8,
+      "press_depth": 0.0
     }
   ]
 }

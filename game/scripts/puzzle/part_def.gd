@@ -2,7 +2,10 @@ class_name PartDef
 extends RefCounted
 ## 부품 한 개의 퍼즐 정의. 코드가 아니라 스테이지 JSON 에서 온다 (기획서 10번).
 
-enum Interaction { PULL, ROTATE, HOLD, SLIDE, PRESS, ALIGN }
+## 기획서 3번의 조작 이름을 그대로 쓴다.
+## Press 는 "길게 누름" 이다. 짧게 톡 누르는 것이 아니다.
+## (기획서의 Hold — 한 부품을 고정하면서 다른 부품 조작 — 은 아직 없다)
+enum Interaction { PULL, ROTATE, SLIDE, PRESS, ALIGN }
 
 ## 조작이 끝났을 때 이 부품이 어떻게 되는가.
 ##   REMOVE — 장치에서 빠져 트레이로 간다 (패널, 셀, 커버)
@@ -13,9 +16,9 @@ enum Resolve { REMOVE, SETTLE }
 const _INTERACTIONS := {
 	"pull": Interaction.PULL,
 	"rotate": Interaction.ROTATE,
-	"hold": Interaction.HOLD,
 	"slide": Interaction.SLIDE,
 	"press": Interaction.PRESS,
+	"hold": Interaction.PRESS,     ## 예전 데이터 호환. 기획서의 Hold 와는 다른 것이었다
 	"align": Interaction.ALIGN,
 }
 
@@ -23,7 +26,6 @@ const _INTERACTIONS := {
 const _DEFAULT_RESOLVE := {
 	Interaction.PULL: Resolve.REMOVE,
 	Interaction.ROTATE: Resolve.REMOVE,
-	Interaction.HOLD: Resolve.SETTLE,
 	Interaction.SLIDE: Resolve.SETTLE,
 	Interaction.PRESS: Resolve.SETTLE,
 	Interaction.ALIGN: Resolve.SETTLE,
@@ -48,9 +50,9 @@ var resist_angle: float = 8.0
 var align_tolerance: float = 7.0      ## 맞추기: 이 오차 안에서 손을 떼야 걸린다
 var align_range: float = 180.0        ## 맞추기: 돌릴 수 있는 범위(±)
 
-# 누르기 / 홀드
+# 누르기 (길게)
 var press_depth: float = 0.045
-var hold_seconds: float = 1.5
+var press_seconds: float = 0.5
 
 # 사운드
 var sfx_engage: String = ""
@@ -84,7 +86,7 @@ static func from_dict(d: Dictionary) -> PartDef:
 	p.align_range = float(d.get("align_range", 180.0))
 
 	p.press_depth = float(d.get("press_depth", 0.045))
-	p.hold_seconds = float(d.get("hold_seconds", 1.5))
+	p.press_seconds = float(d.get("press_seconds", d.get("hold_seconds", 0.5)))
 
 	p.sfx_engage = String(d.get("sfx_engage", ""))
 	p.sfx_release = String(d.get("sfx_release", ""))
@@ -103,7 +105,6 @@ func interaction_name() -> String:
 	match interaction:
 		Interaction.PULL: return "PULL"
 		Interaction.ROTATE: return "ROTATE"
-		Interaction.HOLD: return "HOLD"
 		Interaction.SLIDE: return "SLIDE"
 		Interaction.PRESS: return "PRESS"
 		Interaction.ALIGN: return "ALIGN"

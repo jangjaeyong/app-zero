@@ -162,6 +162,34 @@ def build():
             chord[i] *= max(0.0, 1.0 - (i - a) / (len(chord) - a)) ** 1.5
     made.append(write("stable", chord, peak=0.7))
 
+    # alarm — 불안정도 경고. 거슬리되 아프지 않게. 두 번 삑.
+    alarm = []
+    for i in range(n(0.46)):
+        t = i / SR
+        gate = 1.0 if (t % 0.23) < 0.10 else 0.0
+        s = (math.sin(2 * math.pi * 880 * t) * 0.6
+             + math.sin(2 * math.pi * 1320 * t) * 0.25) * gate
+        alarm.append(s)
+    made.append(write("alarm", lowpass(alarm, 5200), peak=0.55))
+
+    # overload — 과부하. 낮게 깔리며 무너지는 소리. 이게 나면 뭔가 잃은 것이다.
+    over = []
+    for i in range(n(1.1)):
+        t = i / SR
+        f = 220.0 * math.exp(-1.7 * t)
+        s = (math.sin(2 * math.pi * f * t) * 0.8
+             + math.sin(2 * math.pi * f * 0.5 * t) * 0.5)
+        s += random.uniform(-1.0, 1.0) * 0.35 * math.exp(-4.0 * t)
+        over.append(s * math.exp(-1.6 * t))
+    made.append(write("overload", lowpass(over, 2400), peak=0.95))
+
+    # relock — 잠금이 도로 걸린다. 짧고 묵직한 쇳소리.
+    made.append(write("relock", env(
+        mix(lowpass(noise(0.22), 1800),
+            [s * 0.9 for s in tone(150, 0.22, detune=-140)],
+            [s * 0.5 for s in tone(300, 0.22, detune=-300)]),
+        0.0008, 0.22, curve=2.8), peak=0.9))
+
     for p in made:
         print("  %-16s %6.1f KB" % (os.path.basename(p), os.path.getsize(p) / 1024.0))
     print("ZERO_SFX_OK %d개" % len(made))

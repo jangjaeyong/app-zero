@@ -12,6 +12,8 @@ signal reset_pressed()
 signal next_pressed()
 signal replay_pressed()
 signal select_pressed()
+signal paused()
+signal resumed()
 
 
 var tray: PartTray
@@ -33,6 +35,10 @@ var _stars: HBoxContainer
 var _clear_actions: HBoxContainer
 var _next_button: Button
 var _bottom_bar: HBoxContainer
+var _pause_layer: Control
+var _bar: InstabilityBar
+var _undo_left: int = 0
+var _hint_left: int = 0
 var _part_label_tween: Tween
 
 func _ready() -> void:
@@ -43,22 +49,27 @@ func _ready() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
+	# 안드로이드는 전체 화면이다. 상단 카메라 구멍 아래로 UI 가 들어가지 않게.
+	SafeArea.bind(_root)
+
 	_build_top()
 	_build_ring()
 	_build_tray()
 	_build_bottom()
 	_build_clear_overlay()
+	_build_pause()
 
 # --- 상단 ---------------------------------------------------------------
 
 func _build_top() -> void:
-	var wordmark := VBoxContainer.new()
-	wordmark.add_theme_constant_override("separation", 2)
-	wordmark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wordmark.add_child(UiStyle.label("ZERO", 52, UiStyle.WHITE, 12))
-	wordmark.add_child(UiStyle.label("DISASSEMBLE TO DISCOVER", 16,
-		Color(UiStyle.CYAN, 0.75), 5))
-	UiStyle.anchor(wordmark, 0, 0, 0, 0, 46, 42, 46 + 420, 42 + 100)
+	# 게임 중에는 나가는 길이 항상 보여야 한다. 워드마크보다 이게 먼저다.
+	var pause := UiStyle.button("←", 40, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
+	UiStyle.anchor(pause, 0, 0, 0, 0, 40, 40, 132, 132)
+	pause.pressed.connect(open_pause)
+	_root.add_child(pause)
+
+	var wordmark := UiStyle.label("ZERO", 34, Color(UiStyle.WHITE, 0.85), 9)
+	UiStyle.anchor(wordmark, 0, 0, 0, 0, 152, 62, 152 + 190, 62 + 56)
 	_root.add_child(wordmark)
 
 	var stage_chip := UiStyle.chip("STAGE 01", 28, UiStyle.WHITE, Color(UiStyle.CYAN, 0.55))
@@ -80,10 +91,14 @@ func _build_top() -> void:
 	_moves_label = moves_chip.get_child(0)
 	_moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
+	_bar = InstabilityBar.new()
+	UiStyle.anchor(_bar, 0, 0, 1, 0, 150, 168, -150, 216)
+	_root.add_child(_bar)
+
 	# 지금 만지고 있는 부품 이름. 짧게 떴다 사라지는 자막에 가깝다.
 	_part_label = UiStyle.label("", 30, Color(UiStyle.CYAN, 0.0), 3)
 	_part_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	UiStyle.anchor(_part_label, 0, 0, 1, 0, 0, 178, 0, 226)
+	UiStyle.anchor(_part_label, 0, 0, 1, 0, 0, 232, 0, 280)
 	_root.add_child(_part_label)
 
 func _build_ring() -> void:
@@ -108,8 +123,8 @@ func _build_bottom() -> void:
 	_root.add_child(bar)
 	_bottom_bar = bar
 
-	_undo = UiStyle.button("되돌리기", 30, UiStyle.WHITE, UiStyle.CYAN)
-	_hint = UiStyle.button("힌트", 30, UiStyle.AMBER, UiStyle.AMBER)
+	_undo = UiStyle.button("되돌리기", 28, UiStyle.WHITE, UiStyle.CYAN)
+	_hint = UiStyle.button("힌트", 28, UiStyle.AMBER, UiStyle.AMBER)
 	var reset := UiStyle.button("다시", 30, Color(UiStyle.DIM, 0.95), Color(UiStyle.DIM, 0.6))
 	_undo.pressed.connect(func() -> void: undo_pressed.emit())
 	_hint.pressed.connect(func() -> void: hint_pressed.emit())
@@ -117,6 +132,73 @@ func _build_bottom() -> void:
 	for b: Button in [_undo, _hint, reset]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.add_child(b)
+
+# --- 일시정지 ---------------------------------------------------------
+
+func _build_pause() -> void:
+	_pause_layer = Control.new()
+	_pause_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_layer.visible = false
+	_root.add_child(_pause_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(UiStyle.NAVY, 0.82)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 뒤쪽 3D 조작이 새지 않게 여기서 입력을 먹는다.
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_pause_layer.add_child(dim)
+
+	var title := UiStyle.label("일시정지", 56, UiStyle.WHITE, 8)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(title, 0, 0.30, 1, 0.30, 0, 0, 0, 80)
+	_pause_layer.add_child(title)
+
+	var note := UiStyle.label("진행은 이 판을 나가면 사라진다", 20,
+		Color(UiStyle.DIM, 0.9), 2)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.anchor(note, 0, 0.30, 1, 0.30, 0, 92, 0, 132)
+	_pause_layer.add_child(note)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 22)
+	UiStyle.anchor(box, 0, 0.44, 1, 0.44, 110, 0, -110, 460)
+	_pause_layer.add_child(box)
+
+	var resume := UiStyle.button("계속하기", 34, UiStyle.AMBER, UiStyle.AMBER)
+	resume.custom_minimum_size = Vector2(0, 124)
+	resume.pressed.connect(close_pause)
+	box.add_child(resume)
+
+	var again := UiStyle.button("처음부터", 32, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
+	again.custom_minimum_size = Vector2(0, 124)
+	again.pressed.connect(func() -> void:
+		close_pause()
+		replay_pressed.emit())
+	box.add_child(again)
+
+	var out := UiStyle.button("스테이지 선택", 32, UiStyle.WHITE, Color(UiStyle.CYAN, 0.6))
+	out.custom_minimum_size = Vector2(0, 124)
+	out.pressed.connect(func() -> void:
+		close_pause()
+		select_pressed.emit())
+	box.add_child(out)
+
+func open_pause() -> void:
+	if _pause_layer == null or _pause_layer.visible or _clear_layer.visible:
+		return
+	_pause_layer.visible = true
+	Sfx.play("click", -8.0)
+	paused.emit()
+
+func close_pause() -> void:
+	if _pause_layer == null or not _pause_layer.visible:
+		return
+	_pause_layer.visible = false
+	Sfx.play("click", -10.0)
+	resumed.emit()
+
+func is_paused() -> bool:
+	return _pause_layer != null and _pause_layer.visible
 
 # --- 성공 연출 ----------------------------------------------------------
 
@@ -270,7 +352,22 @@ func set_progress(removed: int, moves: int) -> void:
 
 func set_undo_enabled(on: bool) -> void:
 	if _undo != null:
-		_undo.disabled = not on
+		_undo.disabled = not on or _undo_left <= 0
+
+## 도구는 개수가 정해져 있다 (시안 기준). 무제한이면 고민할 이유가 없다.
+func set_tools(undo_left: int, hint_left: int, undo_available: bool) -> void:
+	_undo_left = undo_left
+	_hint_left = hint_left
+	if _undo != null:
+		_undo.text = "되돌리기 %d" % undo_left
+		_undo.disabled = undo_left <= 0 or not undo_available
+	if _hint != null:
+		_hint.text = "힌트 %d" % hint_left
+		_hint.disabled = hint_left <= 0
+
+func set_instability(value: float, level: int) -> void:
+	if _bar != null:
+		_bar.set_state(value, level)
 
 ## 부품 이름을 잠깐 띄웠다 지운다.
 func flash_part_name(text: String, color: Color = UiStyle.CYAN) -> void:
