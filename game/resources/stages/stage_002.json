@@ -1,0 +1,164 @@
+{
+  "id": "STAGE_002",
+  "chapter": "WORKSHOP",
+  "index": 2,
+  "title": "MK-02 PRESSURE DRUM",
+  "device_model": "res://assets/models/device_002.glb",
+  "static_nodes": [
+    "Pedestal",
+    "PedestalGlow",
+    "PedestalTop",
+    "Body"
+  ],
+  "win_condition": "all_parts_removed",
+  "par_moves": 8,
+  "rewards": {
+    "coins": 180,
+    "parts": 3,
+    "rare_parts": 1
+  },
+  "camera": {
+    "distance": 4.05,
+    "pitch": 20.0,
+    "yaw": -34.0,
+    "height": -0.3,
+    "min": 2.7,
+    "max": 5.6
+  },
+  "parts": [
+    {
+      "id": "TopVent",
+      "label": "배기구",
+      "interaction": "pull",
+      "blocked_by": [],
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.34,
+      "resist_distance": 0.04,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "SafetyLatchL",
+      "label": "좌측 안전 걸쇠",
+      "interaction": "slide",
+      "blocked_by": [
+        "TopVent"
+      ],
+      "slide_direction": [
+        -1,
+        0,
+        0
+      ],
+      "slide_distance": 0.17,
+      "resist_distance": 0.022,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "SafetyLatchR",
+      "label": "우측 안전 걸쇠",
+      "interaction": "slide",
+      "blocked_by": [
+        "TopVent"
+      ],
+      "slide_direction": [
+        1,
+        0,
+        0
+      ],
+      "slide_distance": 0.17,
+      "resist_distance": 0.022,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "ReleaseButton",
+      "label": "배출 버튼",
+      "interaction": "press",
+      "blocked_by": [
+        "SafetyLatchL",
+        "SafetyLatchR"
+      ],
+      "remove_direction": [
+        0,
+        0,
+        -1
+      ],
+      "press_depth": 0.042,
+      "sfx_release": "snap"
+    },
+    {
+      "id": "OuterShell",
+      "label": "외피",
+      "interaction": "pull",
+      "blocked_by": [
+        "ReleaseButton"
+      ],
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.52,
+      "resist_distance": 0.045,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "CollarRing",
+      "label": "고정 칼라",
+      "interaction": "rotate",
+      "blocked_by": [
+        "OuterShell"
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "rotation_target": -170.0,
+      "resist_angle": 9.0,
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.3,
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "CoolantPod",
+      "label": "냉각 포드",
+      "interaction": "pull",
+      "blocked_by": [
+        "CollarRing"
+      ],
+      "remove_direction": [
+        -1,
+        0,
+        0
+      ],
+      "remove_distance": 0.4,
+      "resist_distance": 0.03,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "EnergyCore",
+      "label": "에너지 코어",
+      "interaction": "hold",
+      "blocked_by": [
+        "CoolantPod"
+      ],
+      "hold_seconds": 1.8,
+      "is_core": true,
+      "sfx_engage": "core_hum",
+      "sfx_release": "stable"
+    }
+  ]
+}

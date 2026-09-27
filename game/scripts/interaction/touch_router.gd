@@ -74,6 +74,10 @@ func _on_press(index: int, pos: Vector2) -> void:
 		return
 
 	var part := pick(pos)
+	# 제자리에 남는 부품(밀린 걸쇠, 눌린 버튼)은 해결된 뒤에도 거기 있다.
+	# 다시 집히면 안 된다.
+	if part != null and ctx.engine != null and ctx.engine.is_resolved(part.def.id):
+		part = null
 	if part != null:
 		_begin_interaction(part, pos)
 	else:
@@ -132,6 +136,12 @@ func _begin_interaction(part: Part, pos: Vector2) -> void:
 			inter = RotateInteraction.new()
 		PartDef.Interaction.HOLD:
 			inter = HoldInteraction.new()
+		PartDef.Interaction.SLIDE:
+			inter = SlideInteraction.new()
+		PartDef.Interaction.PRESS:
+			inter = PressInteraction.new()
+		PartDef.Interaction.ALIGN:
+			inter = AlignInteraction.new()
 		_:
 			inter = PullInteraction.new()
 
@@ -139,7 +149,7 @@ func _begin_interaction(part: Part, pos: Vector2) -> void:
 	inter.rejected.connect(_on_rejected)
 	inter.progress_changed.connect(func(v: float) -> void: interaction_progress.emit(v))
 	inter.begin(part, ctx)
-	inter.call("set_start", pos)
+	inter.set_start(pos)
 	_interaction = inter
 	part_engaged.emit(part)
 

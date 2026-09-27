@@ -9,6 +9,9 @@ extends CanvasLayer
 signal undo_pressed()
 signal hint_pressed()
 signal reset_pressed()
+signal next_pressed()
+signal replay_pressed()
+signal select_pressed()
 
 
 var tray: PartTray
@@ -26,6 +29,10 @@ var _clear_layer: Control
 var _dim: ColorRect
 var _stable_label: Label
 var _clear_box: VBoxContainer
+var _stars: HBoxContainer
+var _clear_actions: HBoxContainer
+var _next_button: Button
+var _bottom_bar: HBoxContainer
 var _part_label_tween: Tween
 
 func _ready() -> void:
@@ -42,22 +49,6 @@ func _ready() -> void:
 	_build_bottom()
 	_build_clear_overlay()
 
-# --- 배치 헬퍼 -----------------------------------------------------------
-#
-# stretch aspect 가 "expand" 라 뷰포트는 1080x1920 에서 한쪽으로 늘어난다.
-# 절대 좌표로 오른쪽 끝을 계산하면 기기마다 어긋난다. 전부 앵커로 붙인다.
-
-static func _anchor(c: Control, al: float, at: float, ar: float, ab: float,
-		ol: float, ot: float, orr: float, ob: float) -> void:
-	c.anchor_left = al
-	c.anchor_top = at
-	c.anchor_right = ar
-	c.anchor_bottom = ab
-	c.offset_left = ol
-	c.offset_top = ot
-	c.offset_right = orr
-	c.offset_bottom = ob
-
 # --- 상단 ---------------------------------------------------------------
 
 func _build_top() -> void:
@@ -67,11 +58,11 @@ func _build_top() -> void:
 	wordmark.add_child(UiStyle.label("ZERO", 52, UiStyle.WHITE, 12))
 	wordmark.add_child(UiStyle.label("DISASSEMBLE TO DISCOVER", 16,
 		Color(UiStyle.CYAN, 0.75), 5))
-	_anchor(wordmark, 0, 0, 0, 0, 46, 42, 46 + 420, 42 + 100)
+	UiStyle.anchor(wordmark, 0, 0, 0, 0, 46, 42, 46 + 420, 42 + 100)
 	_root.add_child(wordmark)
 
 	var stage_chip := UiStyle.chip("STAGE 01", 28, UiStyle.WHITE, Color(UiStyle.CYAN, 0.55))
-	_anchor(stage_chip, 0.5, 0, 0.5, 0, -118, 44, 118, 112)
+	UiStyle.anchor(stage_chip, 0.5, 0, 0.5, 0, -118, 44, 118, 112)
 	_root.add_child(stage_chip)
 	_stage_label = stage_chip.get_child(0)
 	_stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -80,11 +71,11 @@ func _build_top() -> void:
 	_dots.add_theme_constant_override("separation", 12)
 	_dots.alignment = BoxContainer.ALIGNMENT_CENTER
 	_dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(_dots, 0.5, 0, 0.5, 0, -220, 126, 220, 150)
+	UiStyle.anchor(_dots, 0.5, 0, 0.5, 0, -220, 126, 220, 150)
 	_root.add_child(_dots)
 
 	var moves_chip := UiStyle.chip("MOVES  0", 24, UiStyle.WHITE, Color(UiStyle.DIM, 0.6))
-	_anchor(moves_chip, 1, 0, 1, 0, -250, 48, -46, 110)
+	UiStyle.anchor(moves_chip, 1, 0, 1, 0, -250, 48, -46, 110)
 	_root.add_child(moves_chip)
 	_moves_label = moves_chip.get_child(0)
 	_moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -92,29 +83,30 @@ func _build_top() -> void:
 	# 지금 만지고 있는 부품 이름. 짧게 떴다 사라지는 자막에 가깝다.
 	_part_label = UiStyle.label("", 30, Color(UiStyle.CYAN, 0.0), 3)
 	_part_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_anchor(_part_label, 0, 0, 1, 0, 0, 178, 0, 226)
+	UiStyle.anchor(_part_label, 0, 0, 1, 0, 0, 178, 0, 226)
 	_root.add_child(_part_label)
 
 func _build_ring() -> void:
 	ring = ProgressRing.new()
-	_anchor(ring, 0.5, 0.5, 0.5, 0.5, -95, -10, 95, 180)
+	UiStyle.anchor(ring, 0.5, 0.5, 0.5, 0.5, -95, -10, 95, 180)
 	_root.add_child(ring)
 
 func _build_tray() -> void:
 	var caption := UiStyle.label("RECOVERED PARTS", 18, Color(UiStyle.DIM, 0.85), 5)
-	_anchor(caption, 0, 1, 0, 1, 52, -608, 452, -572)
+	UiStyle.anchor(caption, 0, 1, 0, 1, 52, -608, 452, -572)
 	_root.add_child(caption)
 
 	tray = PartTray.new()
 	tray.name = "Tray"
-	_anchor(tray, 0, 1, 1, 1, 40, -564, -40, -204)
+	UiStyle.anchor(tray, 0, 1, 1, 1, 40, -564, -40, -204)
 	_root.add_child(tray)
 
 func _build_bottom() -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 22)
-	_anchor(bar, 0, 1, 1, 1, 46, -176, -46, -50)
+	UiStyle.anchor(bar, 0, 1, 1, 1, 46, -176, -46, -50)
 	_root.add_child(bar)
+	_bottom_bar = bar
 
 	_undo = UiStyle.button("되돌리기", 30, UiStyle.WHITE, UiStyle.CYAN)
 	_hint = UiStyle.button("힌트", 30, UiStyle.AMBER, UiStyle.AMBER)
@@ -143,7 +135,7 @@ func _build_clear_overlay() -> void:
 
 	_stable_label = UiStyle.label("SYSTEM STABLE", 46, Color(UiStyle.GREEN, 0.0), 14)
 	_stable_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_anchor(_stable_label, 0, 0.37, 1, 0.37, 0, 0, 0, 66)
+	UiStyle.anchor(_stable_label, 0, 0.37, 1, 0.37, 0, 0, 0, 66)
 	_clear_layer.add_child(_stable_label)
 
 	_clear_box = VBoxContainer.new()
@@ -151,7 +143,7 @@ func _build_clear_overlay() -> void:
 	_clear_box.add_theme_constant_override("separation", 14)
 	_clear_box.modulate = Color(1, 1, 1, 0)
 	_clear_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(_clear_box, 0, 0.43, 1, 0.43, 0, 0, 0, 240)
+	UiStyle.anchor(_clear_box, 0, 0.43, 1, 0.43, 0, 0, 0, 240)
 	_clear_layer.add_child(_clear_box)
 
 	var title := UiStyle.label("STAGE CLEAR", 84, UiStyle.WHITE, 16)
@@ -162,11 +154,50 @@ func _build_clear_overlay() -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_clear_box.add_child(sub)
 
+	_stars = HBoxContainer.new()
+	_stars.alignment = BoxContainer.ALIGNMENT_CENTER
+	_stars.add_theme_constant_override("separation", 18)
+	_stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clear_box.add_child(_stars)
+	for i in 3:
+		var star := UiStyle.label("★", 64, Color(UiStyle.DIM, 0.35))
+		_stars.add_child(star)
+
+	_clear_actions = HBoxContainer.new()
+	_clear_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	_clear_actions.add_theme_constant_override("separation", 20)
+	_clear_actions.modulate = Color(1, 1, 1, 0)
+	_clear_layer.add_child(_clear_actions)
+	UiStyle.anchor(_clear_actions, 0, 1, 1, 1, 46, -176, -46, -50)
+
+	var again := UiStyle.button("다시", 30, UiStyle.WHITE, Color(UiStyle.DIM, 0.7))
+	again.custom_minimum_size = Vector2(0, 118)
+	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	again.pressed.connect(func() -> void: replay_pressed.emit())
+	_clear_actions.add_child(again)
+
+	var select := UiStyle.button("스테이지", 30, UiStyle.WHITE, Color(UiStyle.DIM, 0.7))
+	select.custom_minimum_size = Vector2(0, 118)
+	select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	select.pressed.connect(func() -> void: select_pressed.emit())
+	_clear_actions.add_child(select)
+
+	_next_button = UiStyle.button("다음 →", 32, UiStyle.AMBER, UiStyle.AMBER)
+	_next_button.custom_minimum_size = Vector2(0, 118)
+	_next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_next_button.pressed.connect(func() -> void: next_pressed.emit())
+	_clear_actions.add_child(_next_button)
+
 ## 코어가 잡히고 나서 호출. 연출 순서는 기획서 12번 그대로다.
-func play_clear_sequence(moves: int, par: int) -> void:
+func play_clear_sequence(moves: int, par: int, stars: int, has_next: bool) -> void:
 	_clear_layer.visible = true
+	# 게임 중 버튼과 클리어 버튼이 같은 자리를 쓴다. 게임 쪽을 접는다.
+	if _bottom_bar != null:
+		_bottom_bar.visible = false
+	_next_button.disabled = not has_next
+	_next_button.text = "다음 →" if has_next else "마지막"
 	var tw := create_tween()
-	tw.tween_property(_dim, "color:a", 0.45, 0.8)
+	tw.tween_property(_dim, "color:a", 0.66, 0.8)
 	tw.tween_interval(0.9)                                   ## 약 1초 정적
 	tw.tween_property(_stable_label, "theme_override_colors/font_color:a", 1.0, 0.45)
 	tw.tween_callback(func() -> void: Sfx.play("stable", -2.0))
@@ -178,12 +209,35 @@ func play_clear_sequence(moves: int, par: int) -> void:
 		_clear_box.get_child(1).text = "MISSION SUCCESS" + extra)
 	tw.parallel().tween_property(_clear_box, "modulate:a", 1.0, 0.5)
 	tw.tween_callback(func() -> void: Haptics.success())
+	# 별은 하나씩 떨어뜨린다. 한꺼번에 켜면 몇 개인지 안 읽힌다.
+	for i in 3:
+		tw.tween_interval(0.16)
+		tw.tween_callback(_light_star.bind(i, i < stars))
+	tw.tween_property(_clear_actions, "modulate:a", 1.0, 0.35)
+
+func _light_star(index: int, lit: bool) -> void:
+	if index >= _stars.get_child_count():
+		return
+	var star: Label = _stars.get_child(index)
+	star.add_theme_color_override("font_color",
+		UiStyle.AMBER if lit else Color(UiStyle.DIM, 0.3))
+	if not lit:
+		return
+	Sfx.play_varied("click", -6.0)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	star.pivot_offset = star.size * 0.5
+	star.scale = Vector2(1.8, 1.8)
+	tw.tween_property(star, "scale", Vector2.ONE, 0.28)
 
 func hide_clear() -> void:
 	_clear_layer.visible = false
+	if _bottom_bar != null:
+		_bottom_bar.visible = true
 	_dim.color = Color(UiStyle.NAVY, 0.0)
 	_stable_label.add_theme_color_override("font_color", Color(UiStyle.GREEN, 0.0))
 	_clear_box.modulate = Color(1, 1, 1, 0)
+	_clear_actions.modulate = Color(1, 1, 1, 0)
 
 # --- 갱신 ---------------------------------------------------------------
 

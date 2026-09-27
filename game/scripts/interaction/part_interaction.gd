@@ -27,6 +27,10 @@ func begin(p: Part, c: InteractionContext) -> void:
 	part.state = Part.State.ENGAGED
 	_on_begin()
 
+## 손가락이 처음 닿은 자리. 끌기를 쓰는 조작만 쓴다.
+func set_start(_screen_pos: Vector2) -> void:
+	pass
+
 func update(_screen_pos: Vector2) -> void:
 	pass
 
@@ -63,7 +67,7 @@ func _complete() -> void:
 	if _done:
 		return
 	_done = true
-	part.state = Part.State.REMOVED
+	part.state = Part.State.REMOVED if part.def.leaves_device() else Part.State.SETTLED
 	completed.emit(part)
 
 # --- 화면 ↔ 월드 환산 헬퍼 -------------------------------------------

@@ -181,8 +181,7 @@ func release(part: Part, device_parts_root: Node3D) -> void:
 		_occupants.erase(_part_slot[id])
 		_part_slot.erase(id)
 	part.reparent(device_parts_root, false)
-	part.transform = part.home_transform
-	part.scale = Vector3.ONE
+	part.reset_to_origin()
 	part.visible = true
 	part.collision_layer = DeviceRig.PICK_LAYER
 	part.input_ray_pickable = true

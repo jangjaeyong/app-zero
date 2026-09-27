@@ -31,6 +31,19 @@ static func tracked_font(spacing: int) -> Font:
 	fv.spacing_glyph = spacing
 	return fv
 
+## 앵커 배치. stretch aspect 가 "expand" 라 뷰포트가 한쪽으로 늘어나므로
+## 절대 좌표로 오른쪽·아래 끝을 계산하면 기기마다 어긋난다.
+static func anchor(c: Control, al: float, at: float, ar: float, ab: float,
+		ol: float, ot: float, orr: float, ob: float) -> void:
+	c.anchor_left = al
+	c.anchor_top = at
+	c.anchor_right = ar
+	c.anchor_bottom = ab
+	c.offset_left = ol
+	c.offset_top = ot
+	c.offset_right = orr
+	c.offset_bottom = ob
+
 static func label(text: String, size: int, color: Color, spacing: int = 0) -> Label:
 	var l := Label.new()
 	l.text = text

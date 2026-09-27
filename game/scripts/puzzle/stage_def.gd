@@ -12,6 +12,14 @@ var static_nodes: PackedStringArray = PackedStringArray()
 var par_moves: int = 0
 var rewards: Dictionary = {}
 
+## 카메라 구도. 장치 크기가 제각각이라 스테이지가 직접 정한다.
+var cam_distance: float = 3.95
+var cam_pitch: float = 21.0
+var cam_yaw: float = -34.0
+var cam_height: float = -0.34      ## 피벗을 내리면 장치가 화면 위쪽에 앉는다
+var cam_min: float = 2.6
+var cam_max: float = 5.4
+
 var part_order: PackedStringArray = PackedStringArray()   ## JSON 에 적힌 순서 보존
 var parts: Dictionary = {}                                ## id -> PartDef
 
@@ -36,6 +44,14 @@ static func load_from(path: String) -> StageDef:
 		s.static_nodes.append(String(n))
 	s.par_moves = int(d.get("par_moves", 0))
 	s.rewards = d.get("rewards", {})
+
+	var cam: Dictionary = d.get("camera", {})
+	s.cam_distance = float(cam.get("distance", s.cam_distance))
+	s.cam_pitch = float(cam.get("pitch", s.cam_pitch))
+	s.cam_yaw = float(cam.get("yaw", s.cam_yaw))
+	s.cam_height = float(cam.get("height", s.cam_height))
+	s.cam_min = float(cam.get("min", s.cam_min))
+	s.cam_max = float(cam.get("max", s.cam_max))
 
 	for raw in d.get("parts", []):
 		var p := PartDef.from_dict(raw)

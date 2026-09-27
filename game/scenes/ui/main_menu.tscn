@@ -1,0 +1,77 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_menu"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat_lab"]
+sky_top_color = Color(0.067, 0.094, 0.157, 1)
+sky_horizon_color = Color(0.157, 0.216, 0.294, 1)
+sky_curve = 0.12
+ground_bottom_color = Color(0.027, 0.035, 0.055, 1)
+ground_horizon_color = Color(0.098, 0.129, 0.176, 1)
+ground_curve = 0.08
+sun_angle_max = 24.0
+sun_curve = 0.1
+
+[sub_resource type="Sky" id="Sky_lab"]
+sky_material = SubResource("SkyMat_lab")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.031, 0.043, 0.075, 1)
+sky = SubResource("Sky_lab")
+ambient_light_source = 2
+ambient_light_color = Color(0.361, 0.384, 0.424, 1)
+ambient_light_energy = 0.7
+reflected_light_source = 2
+tonemap_mode = 3
+tonemap_white = 2.2
+glow_enabled = true
+glow_intensity = 0.34
+glow_strength = 0.7
+glow_bloom = 0.015
+glow_hdr_threshold = 1.45
+glow_blend_mode = 1
+
+[node name="MainMenu" type="Node3D"]
+script = ExtResource("1_menu")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.672673, 0.403368, -0.620327, -0, 0.838348, 0.545136, 0.73994, -0.366698, 0.563934, 0, 3, 0)
+light_color = Color(1, 0.953, 0.898, 1)
+light_energy = 2.7
+light_specular = 0.9
+shadow_enabled = true
+directional_shadow_mode = 1
+directional_shadow_max_distance = 6.0
+directional_shadow_blend_splits = true
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.544988, -0.251483, 0.79984, 0, 0.953958, 0.29994, -0.838444, -0.163464, 0.519896, 0, 2.4, 0)
+light_color = Color(0.541, 0.694, 0.945, 1)
+light_energy = 0.32
+
+[node name="RimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.981393, 0.0654675, -0.180506, 0, 0.940079, 0.340956, 0.192012, 0.334612, -0.922587, 0, 2, 0)
+light_color = Color(1, 0.714, 0.42, 1)
+light_energy = 0.5
+
+[node name="CoreLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.05)
+light_color = Color(1, 0.549, 0.208, 1)
+light_energy = 0.55
+omni_range = 0.88
+omni_attenuation = 2.1
+
+[node name="Display" type="Node3D" parent="."]
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(0.939693, -0.11698, 0.321394, 0, 0.939693, 0.34202, -0.34202, -0.321394, 0.883022, 0, 0.12, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.75)
+fov = 40.0
+near = 0.05
+far = 40.0

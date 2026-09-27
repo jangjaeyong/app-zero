@@ -1,0 +1,147 @@
+{
+  "id": "STAGE_003",
+  "chapter": "WORKSHOP",
+  "index": 3,
+  "title": "MK-03 CALIBRATION CELL",
+  "device_model": "res://assets/models/device_003.glb",
+  "static_nodes": [
+    "Pedestal",
+    "PedestalGlow",
+    "PedestalTop",
+    "Body"
+  ],
+  "win_condition": "all_parts_removed",
+  "par_moves": 7,
+  "rewards": {
+    "coins": 200,
+    "parts": 4,
+    "rare_parts": 1
+  },
+  "camera": {
+    "distance": 4.7,
+    "pitch": 30.0,
+    "yaw": -30.0,
+    "height": -0.24,
+    "min": 3.2,
+    "max": 6.2
+  },
+  "parts": [
+    {
+      "id": "AccessCover",
+      "label": "접근 덮개",
+      "interaction": "pull",
+      "blocked_by": [],
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.36,
+      "resist_distance": 0.04,
+      "sfx_engage": "slide",
+      "sfx_release": "snap"
+    },
+    {
+      "id": "CalibrationDial",
+      "label": "보정 다이얼",
+      "interaction": "align",
+      "blocked_by": [
+        "AccessCover"
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "rotation_target": 55.0,
+      "align_tolerance": 6.0,
+      "align_range": 175.0,
+      "resist_angle": 8.0,
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "LockBarL",
+      "label": "좌측 잠금 바",
+      "interaction": "slide",
+      "blocked_by": [
+        "CalibrationDial"
+      ],
+      "slide_direction": [
+        -1,
+        0,
+        0
+      ],
+      "slide_distance": 0.15,
+      "resist_distance": 0.02,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "LockBarR",
+      "label": "우측 잠금 바",
+      "interaction": "slide",
+      "blocked_by": [
+        "CalibrationDial"
+      ],
+      "slide_direction": [
+        1,
+        0,
+        0
+      ],
+      "slide_distance": 0.15,
+      "resist_distance": 0.02,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "PressureValve",
+      "label": "압력 밸브",
+      "interaction": "align",
+      "blocked_by": [
+        "LockBarL",
+        "LockBarR"
+      ],
+      "rotation_axis": [
+        0,
+        1,
+        0
+      ],
+      "rotation_target": -80.0,
+      "align_tolerance": 8.0,
+      "align_range": 175.0,
+      "resist_angle": 8.0,
+      "sfx_tick": "ratchet",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "FuelRod",
+      "label": "연료봉",
+      "interaction": "pull",
+      "blocked_by": [
+        "PressureValve"
+      ],
+      "remove_direction": [
+        0,
+        1,
+        0
+      ],
+      "remove_distance": 0.44,
+      "resist_distance": 0.032,
+      "sfx_engage": "slide",
+      "sfx_release": "lock_release"
+    },
+    {
+      "id": "EnergyCore",
+      "label": "에너지 코어",
+      "interaction": "hold",
+      "blocked_by": [
+        "FuelRod"
+      ],
+      "hold_seconds": 1.8,
+      "is_core": true,
+      "sfx_engage": "core_hum",
+      "sfx_release": "stable"
+    }
+  ]
+}

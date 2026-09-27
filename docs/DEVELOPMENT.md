@@ -1,20 +1,51 @@
 # ZERO 개발 문서
 
-DEVICE_001 버티컬 슬라이스 시점 기준.
+챕터 1 (스테이지 3개) 시점 기준.
 
 ---
 
 ## 1. 무엇을 만들었나
 
-기획서 21번의 "1개의 완성도 높은 Vertical Slice". 장치 하나(DEVICE_001)를
-8수에 걸쳐 해체해 코어를 안정화시키면 STAGE CLEAR 까지 간다.
+버티컬 슬라이스(DEVICE_001)로 손맛을 검증한 뒤, 챕터 1 을 스테이지 3개까지
+넓혔다. 메인 화면 → 스테이지 선택 → 플레이 → 클리어 → 다음 스테이지가
+한 바퀴 돌고, 진행과 별이 저장된다.
 
-콘텐츠를 늘리기 전에 **손맛**을 검증하는 것이 목적이라, 챕터·재화·상점·광고는
-의도적으로 만들지 않았다 (기획서 15·17번).
+재화·상점·컬렉션·광고·데일리·Danger/Boss 는 여전히 만들지 않았다
+(기획서 15·17번). 게임 자체부터 완성한다.
+
+### 조작법이 느는 방식 (기획서 3번)
+
+| 스테이지 | 장치 | 부품 | 조작 |
+|---|---|---|---|
+| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Hold |
+| 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · **Slide ×2** · **Press** · Rotate · Hold |
+| 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · **Align ×2** · Slide ×2 · Hold |
+
+새 조작은 익숙한 조작 몇 번 뒤에 나온다. 한 스테이지에 새 조작을 둘 이상
+넣지 않는다.
+
+### 해결 방식 두 가지
+
+`PartDef.Resolve` 가 조작이 끝난 뒤 부품이 어떻게 되는지를 정한다.
+
+- **REMOVE** — 장치에서 빠져 트레이로 간다 (패널, 셀, 커버)
+- **SETTLE** — 제자리에 남는다. 밀린 걸쇠, 눌린 버튼, 맞춰진 다이얼
+
+둘 다 "해결됨" 이고 둘 다 남의 `blocked_by` 를 푼다. 이걸 나누기 전에는
+"빼는 것" 만 퍼즐이 될 수 있었다.
+
+### Rotate 와 Align 의 차이
+
+- **Rotate** — *얼마나* 돌렸는가. 목표 각만큼 돌면 자동으로 풀린다
+- **Align** — *어디에* 세웠는가. 목표 눈금 오차 안에서 **손을 떼야** 걸린다.
+  빗나가면 되돌아가지 않고 그 자리에 남아 조금씩 고쳐 잡을 수 있다
+
+Align 은 목표를 눈으로 볼 수 있어야 성립한다. DEVICE_003 은 섀시 상판에
+눈금을 새기고 목표 눈금 하나만 시안으로 발광시킨다.
 
 ---
 
-## 2. 퍼즐 설계
+## 2. 퍼즐 설계 — DEVICE_001
 
 ```
 LeftPanel  (pull) ─┐
@@ -60,15 +91,20 @@ RightPanel (pull) ─┼──────────────────�
 
 ```
 game/scripts/
-  core/        debug_flags · haptics · debug_overlay · capture_runner
+  core/        debug_flags · haptics · debug_overlay · dev_harness
+               progress_store(저장) · session(화면 전환)
   camera/      orbit_camera
-  interaction/ touch_router · part_interaction(기반) · pull · rotate · hold
-  puzzle/      part_def · stage_def · puzzle_engine
+  interaction/ touch_router · part_interaction(기반)
+               pull · slide · rotate · align · press · hold
+  puzzle/      part_def · stage_def · stage_catalog · puzzle_engine
   device/      device_rig · part
-  ui/          hud · part_tray · progress_ring · ui_style
+  ui/          hud · main_menu · stage_select · part_tray
+               progress_ring · ui_style
   audio/       sfx
   game.gd      위의 것들을 잇는 조립 지점
 ```
+
+오토로드: `Sfx` `Haptics` `DebugFlags` `Progress` `Session` `DevTools`.
 
 책임 분리:
 
@@ -84,12 +120,15 @@ game/scripts/
 
 ## 4. 새 스테이지 추가하기
 
-코드를 고치지 않는다 (기획서 10번).
+코드를 고치지 않는다 (기획서 10번). **DEVICE_002 를 이 방식으로만 추가했고
+GDScript 는 한 줄도 안 고쳤다.** 주장이 아니라 확인된 사실이다.
 
-1. Blender 로 장치를 만들고 **부품마다 독립 Object** 로 이름을 붙인다
-2. `game/assets/models/device_XXX.glb` 로 export
+1. `tools/build_device_XXX.py` 작성 — `zero_blender` 헬퍼를 import 하고
+   **부품마다 독립 Object** 로 이름을 붙인다
+2. `blender -b -P tools/build_device_XXX.py` 로 GLB 생성
 3. `game/resources/stages/stage_XXX.json` 작성
-4. `game.gd` 의 `STAGE_PATH` 만 바꾸면 그 스테이지가 돈다
+4. `game/resources/stages/chapters.json` 의 챕터 `stages` 에 경로 추가
+5. `godot --headless --path game -- --validate` 로 확인
 
 `StageDef.load_from()` 이 읽을 때 검증한다:
 
@@ -112,6 +151,14 @@ game/scripts/
 | `resist_angle` | 막혔을 때 덜컹거리는 각 |
 | `hold_seconds` | 누르고 있어야 하는 시간 |
 | `is_core` | true 면 트레이로 안 가고 안정화 연출로 간다 |
+| `resolve` | `remove`(빠짐) / `settle`(제자리에 남음). 안 적으면 조작 종류가 정한다 |
+| `slide_direction` / `slide_distance` | 밀기. `remove_*` 의 읽기 좋은 별칭 |
+| `align_tolerance` / `align_range` | 맞추기의 허용 오차와 돌릴 수 있는 범위 |
+| `press_depth` | 누르기에서 버튼이 들어가는 깊이 |
+
+스테이지 최상위에 `camera` 를 넣으면 구도를 지정한다
+(`distance` `pitch` `yaw` `height` `min` `max`). 장치 크기가 제각각이라
+한 구도로는 어떤 건 잘리고 어떤 건 작다.
 
 ---
 
@@ -172,14 +219,33 @@ game/scripts/
 
 릴리스 빌드에서는 `DebugFlags.available` 이 false 라 오버레이가 트리에 붙지도 않는다.
 
-### 화면 캡처 하네스
-
-실기기 없이 단계별 그림을 뽑는다.
+### 스테이지 검증기
 
 ```bash
-godot --path game --resolution 530x942 -- --shot out.png            # 시작 화면
-godot --path game --resolution 530x942 -- --shot out.png --remove 3 # 3개 뺀 상태
-godot --path game --resolution 530x942 -- --shot out.png --clear    # 클리어까지
+godot --headless --path game -- --validate
+```
+
+모든 스테이지에 대해 확인한다.
+
+- GLB 에 부품·정적 노드 메시가 실제로 있는가
+- 의존 관계를 따라가면 **정말 끝까지 풀리는가**
+- 기준 수가 부품 수보다 적지 않은가 (별 3개가 가능한가)
+- 코어가 정확히 하나인가
+
+`StageDef.load_from()` 이 읽을 때 `blocked_by` 오타와 **순환**도 따로 잡는다.
+스테이지가 늘어나면 손으로 확인할 수 없다. 데이터가 게임을 정의하니
+데이터가 틀리면 조용히 못 푸는 판이 나온다.
+
+### 화면 캡처 하네스
+
+실기기 없이 화면별 그림을 뽑는다.
+
+```bash
+godot --path game --resolution 530x942 -- --shot a.png
+godot --path game --resolution 530x942 -- --shot b.png --goto select
+godot --path game --resolution 530x942 -- --shot c.png \
+    --goto game --stage res://resources/stages/stage_002.json --remove 3
+godot --path game --resolution 530x942 -- --shot d.png --goto game --clear
 ```
 
 ---
@@ -200,8 +266,10 @@ godot --path game --resolution 530x942 -- --shot out.png --clear    # 클리어�
 
 ## 8. 다음
 
-1. **실기기에서 만져 보기.** 당기는 거리, 돌리는 저항, 햅틱 세기는 화면으로
-   판단할 수 없다. 이게 재미없으면 콘텐츠를 늘리지 않는다 (기획서 18번).
-2. 효과음을 진짜 폴리로 교체 (지금은 합성한 임시음, 파일 이름만 맞추면 됨)
-3. 장치 모델 품질 올리기 — 노멀맵, 텍스처. 시안 수준과의 거리가 가장 큰 리스크
-4. DEVICE_002 로 데이터 기반 구조가 정말 코드 수정 없이 되는지 검증
+1. **새 조작 셋을 실기기에서 확인.** Slide·Press·Align 은 논리는 맞는데
+   손맛은 아직 아무도 안 만져 봤다. 특히 Align 은 "목표가 눈으로 읽히는가" 가
+   전부다 — 안 읽히면 눈금 디자인을 다시 해야 한다.
+2. 챕터 1 을 12스테이지까지 (시안 기준). 장치 9개가 더 필요하다
+3. 효과음을 진짜 폴리로 교체 (지금은 합성한 임시음, 파일 이름만 맞추면 됨)
+4. 장치 모델 품질 — 노멀맵, 텍스처. **시안 수준과의 거리가 여전히 가장 큰 리스크**
+5. 챕터 선택을 시안 2 의 3D 맵으로. 스테이지가 쌓인 뒤에 한다

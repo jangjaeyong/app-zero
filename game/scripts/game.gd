@@ -3,7 +3,7 @@ extends Node3D
 ## 규칙은 PuzzleEngine, 입력은 TouchRouter, 표현은 Part/Hud 가 맡는다.
 ## 여기서는 그것들을 잇고 "제거 → 트레이 → 다음 상태" 흐름만 진행시킨다.
 
-const STAGE_PATH := "res://resources/stages/stage_001.json"
+const FALLBACK_STAGE := "res://resources/stages/stage_001.json"
 
 @onready var _orbit: OrbitCamera = $OrbitCamera
 @onready var _rig: DeviceRig = $DeviceRig
@@ -22,17 +22,20 @@ var _clearing: bool = false
 var _slot_of: Dictionary = {}          ## part id -> 트레이 칸
 
 func _ready() -> void:
-	stage = StageDef.load_from(STAGE_PATH)
+	stage = StageDef.load_from(_stage_path())
 	if stage == null:
 		push_error("[Game] 스테이지를 못 읽었다. 여기서 더 진행해도 의미 없다.")
 		return
+
+	_orbit.configure(stage.cam_yaw, stage.cam_pitch, stage.cam_distance,
+		stage.cam_height, stage.cam_min, stage.cam_max)
 
 	var missing := _rig.build(stage)
 	if not missing.is_empty():
 		push_error("[Game] 모델에 없는 부품: %s" % ", ".join(missing))
 
 	engine = PuzzleEngine.new(stage)
-	engine.part_removed.connect(_on_part_removed)
+	engine.part_resolved.connect(_on_part_resolved)
 	engine.newly_freed.connect(_on_newly_freed)
 	engine.stage_cleared.connect(_on_stage_cleared)
 
@@ -50,6 +53,9 @@ func _ready() -> void:
 	hud.undo_pressed.connect(_on_undo)
 	hud.hint_pressed.connect(_on_hint)
 	hud.reset_pressed.connect(_restart)
+	hud.replay_pressed.connect(_restart)
+	hud.next_pressed.connect(func() -> void: Session.play_next())
+	hud.select_pressed.connect(func() -> void: Session.goto_select())
 
 	router = TouchRouter.new()
 	router.name = "TouchRouter"
@@ -64,6 +70,11 @@ func _ready() -> void:
 	_core = _rig.get_part(_core_id())
 	if _core != null:
 		_core.set_emission(Color(1.0, 0.45, 0.08), 8.0)
+		# 코어 등은 장치마다 코어가 있는 자리로 옮긴다.
+		# 씬에 고정해 두면 장치가 바뀔 때마다 엉뚱한 데를 밝힌다.
+		var lamp := get_node_or_null("CoreLight") as OmniLight3D
+		if lamp != null:
+			lamp.global_position = _core.global_position
 
 	if DebugFlags.available:
 		overlay = DebugOverlay.new()
@@ -75,16 +86,23 @@ func _ready() -> void:
 		overlay.open_core_requested.connect(_debug_open_core)
 		add_child(overlay)
 
-	if DebugFlags.available and OS.get_cmdline_user_args().has("--shot"):
-		var cap := CaptureRunner.new()
-		cap.name = "CaptureRunner"
-		cap.game = self
-		add_child(cap)
-		cap.run()
-
 	# 시작할 때 지금 만질 수 있는 것들을 한 번 짚어준다. 튜토리얼 문구 없이.
 	await get_tree().create_timer(0.7).timeout
 	_pulse_free(Part.OUTLINE_FREE, 2)
+
+## 어느 스테이지를 열 것인가.
+## 보통은 Session 이 정한다. 캡처 하네스처럼 게임 씬을 바로 띄우는 경우를 위해
+## --stage 인자와 기본값을 남겨 둔다.
+func _stage_path() -> String:
+	var args := OS.get_cmdline_user_args()
+	for i in args.size():
+		if args[i] == "--stage" and i + 1 < args.size():
+			Session.current_stage_path = args[i + 1]
+			return args[i + 1]
+	if not Session.current_stage_path.is_empty():
+		return Session.current_stage_path
+	Session.current_stage_path = FALLBACK_STAGE
+	return FALLBACK_STAGE
 
 func _core_id() -> String:
 	for id in stage.part_order:
@@ -113,8 +131,11 @@ func _on_part_completed(part: Part) -> void:
 	if part.def.is_core:
 		_stabilize_core(part)
 		return
-	_fly_to_tray(part)
-	engine.mark_removed(part.def.id)
+	if part.def.leaves_device():
+		_fly_to_tray(part)
+	else:
+		_settle_in_place(part)
+	engine.mark_resolved(part.def.id)
 
 ## 막혔다. 말로 알리지 않는다 — 부품은 걸려서 되돌아가고,
 ## 막고 있는 놈이 붉게 점등한다 (기획서 4번).
@@ -126,7 +147,7 @@ func _on_part_rejected(_part: Part, blockers: PackedStringArray) -> void:
 		if b != null:
 			b.flash_blocker()
 
-func _on_part_removed(id: String) -> void:
+func _on_part_resolved(id: String) -> void:
 	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
 	hud.set_undo_enabled(not engine.history().is_empty())
 	if overlay != null:
@@ -137,9 +158,23 @@ func _on_newly_freed(ids: PackedStringArray) -> void:
 	await get_tree().create_timer(0.34).timeout
 	for id in ids:
 		var p: Part = _rig.get_part(id)
-		if p != null and not engine.is_removed(id):
+		if p != null and not engine.is_resolved(id):
 			p.pulse(Part.OUTLINE_FREE, 2)
 			Sfx.play("click", -14.0)
+
+## 빠지지 않고 제자리에 남는 부품. 밀린 걸쇠, 눌린 버튼, 맞춰진 기어.
+## 위치는 조작 쪽에서 이미 잡아 놨다. 여기서는 "됐다"는 신호만 준다.
+func _settle_in_place(part: Part) -> void:
+	if part.def.interaction == PartDef.Interaction.PRESS:
+		var target: Vector3 = part.home_transform.origin \
+			+ part.def.remove_direction * part.def.press_depth
+		var tw := part.create_tween()
+		tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(part, "position", target, 0.13)
+		tw.tween_callback(func() -> void:
+			if is_instance_valid(part):
+				part.commit_home())
+	part.pulse(UiStyle.GREEN, 1)
 
 func _fly_to_tray(part: Part) -> void:
 	var slot: int = _slot_of.size()
@@ -168,12 +203,14 @@ func _stabilize_core(part: Part) -> void:
 			part.set_emission(col, lerpf(9.5, 4.0, t)),
 		0.0, 1.0, 1.1)
 	tw.parallel().tween_property(part, "scale", Vector3.ONE * 0.94, 1.1)
-	tw.parallel().tween_method(_orbit.set_distance, _orbit.distance(), 3.35, 1.2)
+	tw.parallel().tween_method(_orbit.set_distance, _orbit.distance(),
+			clampf(stage.cam_distance * 0.86, _orbit.min_distance, _orbit.max_distance), 1.2)
 	tw.tween_callback(func() -> void: part.fade_outline(UiStyle.GREEN, 0.7, 0.4))
-	tw.tween_callback(func() -> void: engine.mark_removed(part.def.id))
+	tw.tween_callback(func() -> void: engine.mark_resolved(part.def.id))
 
 func _on_stage_cleared() -> void:
-	hud.play_clear_sequence(engine.moves, stage.par_moves)
+	var stars := Progress.record_clear(stage.id, engine.moves, stage.par_moves)
+	hud.play_clear_sequence(engine.moves, stage.par_moves, stars, Session.has_next())
 
 # --- 버튼 ---------------------------------------------------------------
 
@@ -185,8 +222,13 @@ func _on_undo() -> void:
 		return
 	var part: Part = _rig.get_part(id)
 	if part != null:
-		hud.tray.release(part, _rig.parts_root())
-		_slot_of.erase(id)
+		if _slot_of.has(id):
+			hud.tray.release(part, _rig.parts_root())
+			_slot_of.erase(id)
+		else:
+			# 제자리에 남았던 부품은 원래 자리로 되돌린다.
+			part.reset_to_origin()
+		part.state = Part.State.IDLE
 		part.pulse(Part.OUTLINE_HINT, 1)
 	Sfx.play_varied("slide", -8.0)
 	hud.set_progress(engine.total() - engine.remaining(), engine.moves)
@@ -219,16 +261,16 @@ func _restart() -> void:
 
 func _debug_force_remove() -> void:
 	for id in stage.part_order:
-		if not engine.is_removed(id):
+		if not engine.is_resolved(id):
 			var p: Part = _rig.get_part(id)
 			if p != null and not p.def.is_core:
 				_fly_to_tray(p)
-			engine.mark_removed(id)
+			engine.mark_resolved(id)
 			return
 
 func _debug_open_core() -> void:
 	for id in stage.part_order:
-		if engine.is_removed(id):
+		if engine.is_resolved(id):
 			continue
 		var p: Part = _rig.get_part(id)
 		if p == null:
@@ -237,7 +279,7 @@ func _debug_open_core() -> void:
 			_stabilize_core(p)
 		else:
 			_fly_to_tray(p)
-			engine.mark_removed(id)
+			engine.mark_resolved(id)
 
 ## 캡처용: 카메라를 원하는 각도로 돌려놓는다.
 func debug_spin(yaw_degrees: float) -> void:

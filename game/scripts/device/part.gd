@@ -4,7 +4,8 @@ extends StaticBody3D
 ## 메시는 GLB 에서 그대로 가져오고, 퍼즐 로직은 여기 안 들어간다 (기획서 9번).
 ## 이 클래스가 아는 것은 "어떻게 보이고 어떻게 반응하는가" 뿐이다.
 
-enum State { IDLE, ENGAGED, REMOVED }
+## SETTLED 는 "제자리에 남았지만 해결된" 상태다. 밀린 걸쇠, 눌린 버튼, 맞춰진 기어.
+enum State { IDLE, ENGAGED, SETTLED, REMOVED }
 
 const OUTLINE_BLOCKED := Color(1.0, 0.32, 0.28)
 const OUTLINE_FREE := Color(0.18, 0.78, 0.98)
@@ -12,7 +13,8 @@ const OUTLINE_HINT := Color(1.0, 0.72, 0.22)
 
 var def: PartDef
 var state: State = State.IDLE
-var home_transform: Transform3D
+var home_transform: Transform3D     ## 지금의 쉬는 자리 (밀린 걸쇠는 여기가 바뀐다)
+var origin_transform: Transform3D   ## 스테이지 시작 자리. 되돌리기·리셋의 기준
 var mesh: MeshInstance3D
 
 var _outline: MeshInstance3D
@@ -20,6 +22,7 @@ var _outline_mat: StandardMaterial3D
 var _surface_mat: StandardMaterial3D
 var _base_emission: Color = Color.BLACK
 var _base_emission_energy: float = 0.0
+var align_angle: float = 0.0        ## 맞추기 부품이 지금 돌아가 있는 각(도)
 var _shake_tween: Tween
 var _outline_tween: Tween
 
@@ -28,6 +31,7 @@ func setup(part_def: PartDef, mesh_node: MeshInstance3D) -> void:
 	name = "Part_" + def.id
 	mesh = mesh_node
 	home_transform = transform
+	origin_transform = transform
 
 	_build_collision()
 	_build_outline()
@@ -153,6 +157,19 @@ func shake(axis: Vector3 = Vector3.ZERO) -> void:
 	_shake_tween.tween_property(self, "position", home - dir * 0.7, 0.045)
 	_shake_tween.tween_property(self, "position", home + dir * 0.35, 0.045)
 	_shake_tween.tween_property(self, "position", home, 0.06)
+
+## 지금 자리를 새 기준점으로 삼는다. 밀려 들어간 걸쇠는 여기가 제자리다.
+func commit_home() -> void:
+	home_transform = transform
+
+## 스테이지 시작 상태로 되돌린다.
+func reset_to_origin() -> void:
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+	align_angle = 0.0
+	home_transform = origin_transform
+	transform = origin_transform
+	scale = Vector3.ONE
 
 func settle_home(time: float = 0.14) -> void:
 	if _shake_tween != null and _shake_tween.is_valid():

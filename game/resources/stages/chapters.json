@@ -1,0 +1,53 @@
+{
+  "chapters": [
+    {
+      "id": "WORKSHOP",
+      "index": 1,
+      "title": "WORKSHOP",
+      "subtitle": "BASIC DISASSEMBLY LAB",
+      "description": "해체의 기본. 익숙해 보이는 장치 안에 놀라운 구조가 숨어 있다.",
+      "accent": "#FFB347",
+      "stages": [
+        "res://resources/stages/stage_001.json",
+        "res://resources/stages/stage_002.json",
+        "res://resources/stages/stage_003.json"
+      ]
+    },
+    {
+      "id": "REACTOR_ROOM",
+      "index": 2,
+      "title": "REACTOR ROOM",
+      "subtitle": "THERMAL CONTAINMENT",
+      "description": "열이 오르는 장치들. 순서를 틀리면 시간이 줄어든다.",
+      "accent": "#FF7A2E",
+      "stages": []
+    },
+    {
+      "id": "ARCHIVE",
+      "index": 3,
+      "title": "ARCHIVE",
+      "subtitle": "DATA VAULT",
+      "description": "기록 보관 장치. 잠금이 물리적이지 않다.",
+      "accent": "#2EC7FA",
+      "stages": []
+    },
+    {
+      "id": "FROZEN_VAULT",
+      "index": 4,
+      "title": "FROZEN VAULT",
+      "subtitle": "CRYO STORAGE",
+      "description": "얼어붙은 부품은 억지로 당기면 부러진다.",
+      "accent": "#7FD4FF",
+      "stages": []
+    },
+    {
+      "id": "CORE_CHAMBER",
+      "index": 5,
+      "title": "CORE CHAMBER",
+      "subtitle": "PRIME ASSEMBLY",
+      "description": "여기까지 온 사람만 볼 수 있는 것.",
+      "accent": "#FFC94A",
+      "stages": []
+    }
+  ]
+}

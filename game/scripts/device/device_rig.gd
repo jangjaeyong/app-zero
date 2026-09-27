@@ -85,12 +85,12 @@ func reset_all() -> void:
 		var p: Part = parts[id]
 		p.state = Part.State.IDLE
 		p.visible = true
-		p.snap_home()
-		p.scale = Vector3.ONE
 		p.set_outline(Part.OUTLINE_FREE, 0.0)
+		p.collision_layer = PICK_LAYER
+		p.input_ray_pickable = true
 		if p.get_parent() != _parts_root:
 			p.reparent(_parts_root, false)
-			p.transform = p.home_transform
+		p.reset_to_origin()
 
 func parts_root() -> Node3D:
 	return _parts_root

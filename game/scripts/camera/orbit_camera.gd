@@ -44,6 +44,21 @@ func _apply(_instant: bool) -> void:
 	if camera != null:
 		camera.position = Vector3(0, 0, _distance)
 
+## 스테이지가 정한 구도로 맞춘다.
+func configure(yaw: float, pitch: float, dist: float, height: float,
+		dist_min: float, dist_max: float) -> void:
+	min_distance = dist_min
+	max_distance = dist_max
+	default_distance = clampf(dist, dist_min, dist_max)
+	position.y = height
+	_yaw = yaw
+	_target_yaw = yaw
+	_pitch = clampf(pitch, min_pitch, max_pitch)
+	_target_pitch = _pitch
+	_distance = default_distance
+	_target_distance = default_distance
+	_apply(true)
+
 func orbit(drag_px: Vector2) -> void:
 	_target_yaw -= drag_px.x * orbit_speed
 	_target_pitch = clampf(_target_pitch + drag_px.y * orbit_speed, min_pitch, max_pitch)
@@ -62,8 +77,6 @@ func nudge_distance(amount: float) -> void:
 	_target_distance = clampf(_target_distance + amount, min_distance, max_distance)
 
 func frame_default() -> void:
-	_target_yaw = -34.0
-	_target_pitch = 21.0
 	_target_distance = default_distance
 
 ## 특정 부품이 잘 보이도록 부드럽게 돌아본다 (힌트/새로 열린 부품용).

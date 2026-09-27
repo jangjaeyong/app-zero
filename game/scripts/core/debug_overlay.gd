@@ -58,7 +58,7 @@ func _apply_pick_view() -> void:
 	if rig == null:
 		return
 	for p in rig.all_parts():
-		if engine != null and engine.is_removed(p.def.id):
+		if engine != null and engine.is_resolved(p.def.id):
 			continue
 		if DebugFlags.show_collision:
 			p.set_outline(UiStyle.GREEN, 0.5)
@@ -91,9 +91,9 @@ func _compose() -> String:
 		var d: PartDef = engine.stage.parts[id]
 		var mark := "·"
 		var note := ""
-		if engine.is_removed(id):
+		if engine.is_resolved(id):
 			mark = "x"
-			note = "REMOVED"
+			note = "DONE"
 		elif engine.is_free(id):
 			mark = "o"
 			note = "FREE"

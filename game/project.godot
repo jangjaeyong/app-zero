@@ -7,7 +7,8 @@ config_version=5
 
 config/name="ZERO"
 config/description="Disassemble to Discover"
-run/main_scene="res://scenes/game/game.tscn"
+config/version="0.2.0"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 boot_splash/bg_color=Color(0.043, 0.055, 0.094, 1)
@@ -18,6 +19,9 @@ boot_splash/show_image=false
 Sfx="*res://scripts/audio/sfx.gd"
 Haptics="*res://scripts/core/haptics.gd"
 DebugFlags="*res://scripts/core/debug_flags.gd"
+Progress="*res://scripts/core/progress_store.gd"
+Session="*res://scripts/core/session.gd"
+DevTools="*res://scripts/core/dev_harness.gd"
 
 [display]
 

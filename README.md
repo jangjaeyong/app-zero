@@ -7,37 +7,54 @@
 
 ## 지금 상태
 
-**DEVICE_001 버티컬 슬라이스 1개.** 8수짜리 퍼즐 하나가 처음부터 STAGE CLEAR 까지 돈다.
+**챕터 1 — WORKSHOP, 스테이지 3개.** 메인 화면 → 스테이지 선택 → 플레이 →
+클리어 → 다음 스테이지까지 한 바퀴가 돈다. 진행과 별은 저장된다.
 
-| | |
-|---|---|
-| 조작 | Pull(4) · Rotate(2) · Hold(1) |
-| 부품 | 8개 + 정적 구조물 4개 |
-| 구현됨 | 의존 규칙, 걸림 연출, 트레이 수납, 되돌리기, 힌트, 성공 연출, 효과음, 디버그 오버레이 |
-| 아직 없음 | 챕터/맵, 재화, 상점, 광고, 컬렉션, 데일리, Danger/Boss 모드 |
+| 스테이지 | 장치 | 부품 | 조작 |
+|---|---|---|---|
+| 01 | MK-01 CONTAINMENT UNIT | 8 | Pull ×5 · Rotate ×2 · Hold |
+| 02 | MK-02 PRESSURE DRUM | 8 | Pull ×3 · **Slide ×2** · **Press** · Rotate · Hold |
+| 03 | MK-03 CALIBRATION CELL | 7 | Pull ×2 · **Align ×2** · Slide ×2 · Hold |
+
+조작법이 스테이지마다 하나씩 늘어난다 (기획서 3번).
+
+**아직 없음:** 재화 · 상점 · 컬렉션 · 광고 · 데일리 · Danger/Boss 모드,
+챕터 2~5 의 내용물, 노멀맵/텍스처.
 
 ## 실행
 
 ```bash
-godot --path game                       # 플레이
-godot --headless --import --path game   # 에셋 다시 가져오기
+godot --path game                          # 플레이
+godot --headless --import --path game      # 에셋 다시 가져오기
+godot --headless --path game -- --validate # 스테이지 데이터 검증
 ```
 
-개발 빌드 단축키: `F1` 디버그 오버레이 · `F2` 픽 범위 표시 · `F5` 리셋.
+개발 빌드 단축키: `F1` 디버그 오버레이 · `F2` 픽 범위 · `F5` 리셋.
 
 ## 에셋 다시 만들기
 
 ```bash
-blender -b -P tools/build_device_001.py   # 장치 모델 → game/assets/models/device_001.glb
-python3 tools/make_sfx.py                 # 효과음 8종 → game/assets/audio/
+blender -b -P tools/build_device_001.py   # 장치 모델 (002, 003 도 같은 방식)
+python3 tools/make_sfx.py                 # 효과음 8종
+python3 tools/make_icons.py               # 런처 아이콘 4종
 ```
 
-둘 다 결정적이다. 소스는 스크립트고, GLB 와 WAV 는 산출물이다.
+전부 결정적이다. 소스는 스크립트고, GLB·WAV·PNG 는 산출물이다.
+공통 조립 헬퍼는 `tools/zero_blender.py`.
+
+## 새 스테이지 추가
+
+코드를 고치지 않는다.
+
+1. `tools/build_device_XXX.py` 로 GLB 를 만든다 (부품마다 독립 Object)
+2. `game/resources/stages/stage_XXX.json` 을 쓴다
+3. `game/resources/stages/chapters.json` 의 챕터에 경로를 넣는다
+4. `godot --headless --path game -- --validate` 로 확인한다
 
 ## 폴더
 
 ```
 docs/     기획서, 시안, 개발 문서
 game/     Godot 프로젝트 루트 (project.godot)
-tools/    Blender / 오디오 생성 스크립트
+tools/    Blender / 오디오 / 아이콘 생성 스크립트
 ```
