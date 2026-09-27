@@ -6,27 +6,43 @@ extends PartInteraction
 var _world_dir: Vector3
 var _screen_dir: Vector2
 var _px_per_unit: float = 400.0
-var _start_screen: Vector2
+var _last_screen: Vector2
 var _home: Vector3
+var _raw: float = 0.0            ## 누적 이동량 (제한 전)
 var _travel: float = 0.0
+var _started: bool = false
 var _engaged_sfx: bool = false
 
 func _on_begin() -> void:
 	_world_dir = (part.get_parent().global_transform.basis * part.params().remove_direction).normalized()
-	var axis := screen_axis_of(_world_dir)
-	_screen_dir = axis["dir"]
-	_px_per_unit = axis["px_per_unit"]
 	_home = part.home_transform.origin
+	_refresh_axis()
+	_raw = 0.0
 	_travel = 0.0
+	_started = false
 	_engaged_sfx = false
 	part.set_outline(Part.OUTLINE_FREE if free else Part.OUTLINE_BLOCKED, 0.35)
 
+## 카메라가 아직 미끄러지는 중일 수 있다. 매 프레임 축을 다시 잰다.
+func _refresh_axis() -> void:
+	var axis := screen_axis_of(_world_dir, home_world())
+	_screen_dir = axis["dir"]
+	_px_per_unit = axis["px_per_unit"]
+
 func set_start(screen_pos: Vector2) -> void:
-	_start_screen = screen_pos
+	_last_screen = screen_pos
+	_started = true
 
 func update(screen_pos: Vector2) -> void:
-	var px: float = (screen_pos - _start_screen).dot(_screen_dir)
-	var raw: float = px / maxf(_px_per_unit, 1.0)
+	if not _started:
+		set_start(screen_pos)
+		return
+	_refresh_axis()
+	# 시작점과의 차이가 아니라 **이번 프레임의 차이** 를 쌓는다.
+	# 그래야 도중에 카메라가 움직여도 눈금이 어긋나지 않는다.
+	_raw += (screen_pos - _last_screen).dot(_screen_dir) / maxf(_px_per_unit, 1.0)
+	_last_screen = screen_pos
+	var raw: float = _raw
 
 	if free:
 		_travel = clampf(raw, 0.0, part.params().remove_distance)

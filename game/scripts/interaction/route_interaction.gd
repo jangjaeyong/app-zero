@@ -70,6 +70,7 @@ func set_start(_screen_pos: Vector2) -> void:
 func update(screen_pos: Vector2) -> void:
 	if _total <= 0.0:
 		return
+	_reproject()
 	var hit := _closest_on_path(screen_pos)
 	var t: float = hit["t"]
 	var dist: float = hit["dist"]
@@ -103,6 +104,20 @@ func update(screen_pos: Vector2) -> void:
 		_complete()
 
 ## 화면 꺾은선 위에서 손가락과 가장 가까운 지점. t 는 0~1 진행도.
+## 카메라가 움직이면 화면상의 경로도 움직인다. 매번 다시 투영한다.
+func _reproject() -> void:
+	if _world.size() < 2:
+		return
+	_screen.clear()
+	for w in _world:
+		_screen.append(ctx.camera.unproject_position(w))
+	_lengths.clear()
+	_lengths.append(0.0)
+	_total = 0.0
+	for i in range(1, _screen.size()):
+		_total += _screen[i].distance_to(_screen[i - 1])
+		_lengths.append(_total)
+
 func _closest_on_path(p: Vector2) -> Dictionary:
 	var best_d := INF
 	var best_t := 0.0

@@ -18,10 +18,10 @@
     "rare_parts": 1
   },
   "camera": {
-    "distance": 5.1,
+    "distance": 5.6,
     "pitch": 30.0,
     "yaw": -30.0,
-    "height": -0.1,
+    "height": -0.02,
     "min": 3.2,
     "max": 7.0
   },
@@ -36,7 +36,7 @@
         1,
         0
       ],
-      "remove_distance": 0.42,
+      "remove_distance": 0.46,
       "resist_distance": 0.04,
       "sfx_engage": "slide",
       "sfx_release": "snap"

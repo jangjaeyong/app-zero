@@ -66,7 +66,7 @@ def build():
     ]
     for sx in (-1, 1):
         for sy in (-1, 1):
-            body.append(z.cyl(0.030, 0.34, (sx * 0.442, sy * 0.310, 0.420),
+            body.append(z.cyl(0.030, 0.52, (sx * 0.442, sy * 0.310, 0.510),
                               p["steel"], verts=12))
     # 앞면 통풍구
     for i in range(4):
@@ -87,15 +87,15 @@ def build():
 
     # ── 접근 덮개 (당기기) ────────────────────────────────────────────
     cover = [
-        z.box((0.96, 0.72, 0.055), (0, 0, 0.640), p["panel"], bevel=0.016),
-        z.box((0.76, 0.52, 0.020), (0, 0, 0.676), p["panel"], bevel=0.010),
+        z.box((0.96, 0.72, 0.055), (0, 0, 0.760), p["panel"], bevel=0.016),
+        z.box((0.76, 0.52, 0.020), (0, 0, 0.796), p["panel"], bevel=0.010),
     ]
-    cover.append(z.cyl(0.120, 0.028, (0, 0, 0.686), p["glass"], verts=32))
-    cover.append(z.torus(0.130, 0.016, (0, 0, 0.686), p["steel"], seg=36))
+    cover.append(z.cyl(0.120, 0.028, (0, 0, 0.806), p["glass"], verts=32))
+    cover.append(z.torus(0.130, 0.016, (0, 0, 0.806), p["steel"], seg=36))
     for sx in (-1, 1):
-        cover.append(z.torus(0.052, 0.014, (sx * 0.34, 0.0, 0.692), p["brass"],
+        cover.append(z.torus(0.052, 0.014, (sx * 0.34, 0.0, 0.812), p["brass"],
                              rot=(math.radians(90), 0, 0), seg=24))
-        cover.append(z.box((0.050, 0.050, 0.014), (sx * 0.40, -0.28, 0.674),
+        cover.append(z.box((0.050, 0.050, 0.014), (sx * 0.40, -0.28, 0.794),
                            p["led"], bevel=0.003, rot=(0, 0, math.radians(45))))
     z.join(cover, "AccessCover")
 
@@ -145,7 +145,7 @@ def build():
     # ── 연료봉 (당기기) ───────────────────────────────────────────────
     rod = [z.cyl(0.128, 0.30, (0, 0, 0.420), p["amber"], verts=28)]
     rod.append(z.cyl(0.148, 0.046, (0, 0, 0.590), p["steel"], verts=28))
-    rod.append(z.torus(0.058, 0.015, (0, 0, 0.622), p["brass"],
+    rod.append(z.torus(0.058, 0.015, (0, 0, 0.608), p["brass"],
                        rot=(math.radians(90), 0, 0), seg=24))
     rod.append(z.cyl(0.142, 0.040, (0, 0, 0.292), p["steel"], verts=28))
     z.join(rod, "FuelRod")

@@ -12,7 +12,7 @@ const PIVOT_DEADZONE := 8.0
 var _axis_world: Vector3
 var _sign: float = 1.0
 var _center: Vector2
-var _last_screen_angle: float = 0.0
+var _last_pos: Vector2 = Vector2.ZERO
 var _has_reference: bool = false
 var _angle: float = 0.0             ## 기준 자세로부터의 현재 각(도)
 var _home_basis: Basis
@@ -41,23 +41,32 @@ func set_start(screen_pos: Vector2) -> void:
 ## 중심 근처에서는 각을 잴 수 없다. 기준을 못 잡았으면 이번 프레임은 버린다 —
 ## 0도를 기준으로 삼으면 손가락을 조금 옮긴 것이 큰 회전으로 들어간다.
 func _grab_reference(screen_pos: Vector2) -> bool:
-	var v := screen_pos - _center
-	if v.length() < PIVOT_DEADZONE:
+	_center = ctx.camera.unproject_position(home_world())
+	if (screen_pos - _center).length() < PIVOT_DEADZONE:
 		return false
-	_last_screen_angle = rad_to_deg(atan2(v.y, v.x))
+	_last_pos = screen_pos
 	_has_reference = true
 	return true
+
+## 중심이 화면에서 움직여도(카메라 관성) 회전이 끼어들지 않게,
+## 각이 아니라 **두 화면 위치의 차이** 로 잰다.
+func _delta_degrees(screen_pos: Vector2) -> float:
+	_center = ctx.camera.unproject_position(home_world())
+	var a := _last_pos - _center
+	var b := screen_pos - _center
+	if a.length() < PIVOT_DEADZONE or b.length() < PIVOT_DEADZONE:
+		return 0.0
+	return wrapf(rad_to_deg(b.angle() - a.angle()), -180.0, 180.0)
 
 func update(screen_pos: Vector2) -> void:
 	if not _has_reference:
 		_grab_reference(screen_pos)
 		return
-	var v := screen_pos - _center
-	if v.length() < PIVOT_DEADZONE:
+	var raw: float = _delta_degrees(screen_pos)
+	if is_zero_approx(raw):
 		return
-	var a: float = rad_to_deg(atan2(v.y, v.x))
-	var d: float = wrapf(a - _last_screen_angle, -180.0, 180.0) * _sign
-	_last_screen_angle = a
+	_last_pos = screen_pos
+	var d: float = raw * _sign
 
 	if not free:
 		# 막혀 있으면 저항각까지만 덜컹거린다.

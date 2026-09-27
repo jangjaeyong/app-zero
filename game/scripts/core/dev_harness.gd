@@ -27,7 +27,11 @@ func _ready() -> void:
 
 func _validate_all() -> void:
 	await get_tree().process_frame
-	var problems := _check_scripts()
+	# 스크립트 컴파일 확인은 **이 안에서 할 수 없다.**
+	# 그냥 load() 하면 캐시된 것이 와서 깨진 것도 통과하고,
+	# 캐시를 무시하면 지금 돌고 있는 자기 자신까지 다시 불러와 프로세스가 망가진다.
+	# → tools/check_scripts.sh 로 뺐다 (godot --check-only 를 파일마다 돌린다).
+	var problems := 0
 	var stages := 0
 	for chapter in Session.catalog.chapters:
 		for path in chapter.stages:
@@ -39,25 +43,6 @@ func _validate_all() -> void:
 	else:
 		print("ZERO_VALIDATE_FAIL  스테이지 %d개 · 문제 %d건" % [stages, problems])
 	get_tree().quit(0 if problems == 0 else 1)
-
-## 스테이지 데이터는 멀쩡한데 조작 스크립트가 컴파일이 안 되면
-## 게임 씬을 열 때까지 아무도 모른다. 실제로 한 번 당했다.
-## 여기서 한 번씩 만들어 본다 — 파싱 오류는 이 시점에 터진다.
-func _check_scripts() -> int:
-	var made: Array = [
-		PullInteraction.new(), SlideInteraction.new(), RotateInteraction.new(),
-		AlignInteraction.new(), PressInteraction.new(), RouteInteraction.new(),
-		SequenceInteraction.new(),
-	]
-	var missing := 0
-	for m in made:
-		if m == null:
-			missing += 1
-	if missing > 0:
-		print("  ✗ 조작 스크립트 %d개를 못 만들었다" % missing)
-	else:
-		print("  ✓ 조작 스크립트 %d종 컴파일 확인" % made.size())
-	return missing
 
 func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 	var fails: Array[String] = []
@@ -136,6 +121,13 @@ func _validate_stage(chapter: StageCatalog.Chapter, path: String) -> int:
 	# 6) 빠져나가는 길에 아직 붙어 있는 것을 뚫고 지나가는가.
 	#    이건 데이터만 봐서는 절대 안 보이고, 실제로 세 군데에서 일어나고 있었다.
 	warns.append_array(_sweep_check(stage, table))
+	if OS.get_cmdline_user_args().has("--boxes"):
+		for k in table:
+			var bb: AABB = table[k]["aabb"]
+			print("      [BOX] %-16s y %.3f..%.3f  x %.3f..%.3f  z %.3f..%.3f"
+				% [k, bb.position.y, bb.position.y + bb.size.y,
+				   bb.position.x, bb.position.x + bb.size.x,
+				   bb.position.z, bb.position.z + bb.size.z])
 
 	# 7) 경로 시작점이 부품 자리와 맞는가 (몇 cm 어긋나면 첫 터치에 부품이 튄다)
 	for id in stage.part_order:
@@ -228,24 +220,37 @@ func _sweep_check(stage: StageDef, table: Dictionary) -> Array[String]:
 			continue
 		var dir: Vector3 = pd.remove_direction.normalized()
 		var dist: float = pd.remove_distance + 0.28     # game.gd 의 날아가는 거리
-		var box: AABB = (table[id]["aabb"] as AABB).grow(-0.012)
-		if box.size.x <= 0.0 or box.size.y <= 0.0 or box.size.z <= 0.0:
-			box = table[id]["aabb"]
+		# 상자는 부품보다 크다 — 토러스나 ㄱ자 부품은 모서리가 텅 비어 있다.
+		# 그대로 쓰면 프레임 가장자리를 스치는 것마다 오탐이 난다.
+		# 진행 방향과 **직각인 두 축만** 줄여 "부품의 몸통" 에 가깝게 만든다.
+		var box: AABB = table[id]["aabb"]
+		var shrink := Vector3.ONE
+		for axis in 3:
+			if absf(dir[axis]) < 0.5:
+				shrink[axis] = 0.62
+		var center: Vector3 = box.position + box.size * 0.5
+		var size: Vector3 = box.size * shrink
+		box = AABB(center - size * 0.5, size)
 		var a: AABB = AABB(box.position + dir * START, box.size)
 		var swept: AABB = a.merge(AABB(box.position + dir * dist, box.size))
 
 		var gone := _blockers_closure(stage, id)
 		for other in table:
 			if other == id or gone.has(other):
+				continue    # 이것보다 먼저 빠지는 것들. 그때 이미 없다
+			# ⚠️ 정적 구조물(Body)은 뺀다. 통짜로 합쳐진 프레임이라
+			# 속이 비어 있어도 상자가 겹치고, 안쪽 레일·브래킷 옆을 지나가는
+			# 것만으로 걸린다. 전부 켜 놓으면 매번 울려서 아무도 안 본다.
+			# (천장을 뚫고 나가는 것 같은 진짜 경우는 눈으로 확인한다)
+			if not stage.parts.has(other):
 				continue
-			# 이 부품이 나갈 때 other 가 아직 붙어 있을 수 있는가
-			if stage.parts.has(other) and _blockers_closure(stage, other).has(id):
-				continue     # other 는 이것보다 나중이므로 지금은 아직 있지만
 			if not _overlaps(swept, table[other]["aabb"], EPS):
 				continue
 			if not _hits_faces(swept, table[other]["faces"]):
 				continue
-			out.append("%s 가 빠지는 길에 '%s' 를 뚫고 지나간다" % [id, other])
+			var ov := _overlap_box(swept, table[other]["aabb"])
+			out.append("%s 가 빠지는 길에 '%s' 를 뚫고 지나간다 (겹침 %.2f×%.2f×%.2f)"
+				% [id, other, ov.x, ov.y, ov.z])
 	return out
 
 func _mesh_table(model_path: String) -> Dictionary:
@@ -299,6 +304,13 @@ static func _hits_faces(box: AABB, faces: PackedVector3Array) -> bool:
 			return true
 		i += 3
 	return false
+
+static func _overlap_box(a: AABB, b: AABB) -> Vector3:
+	var out := Vector3.ZERO
+	for i in 3:
+		out[i] = maxf(0.0, minf(a.position[i] + a.size[i], b.position[i] + b.size[i])
+			- maxf(a.position[i], b.position[i]))
+	return out
 
 ## 이 부품보다 **먼저** 해결되어야 하는 것들 (그때 이미 사라진 것들).
 static func _blockers_closure(stage: StageDef, id: String) -> Dictionary:

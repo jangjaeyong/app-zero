@@ -92,8 +92,16 @@ func _complete() -> void:
 
 ## 월드 방향 벡터가 화면에서 어느 쪽으로, 1 유닛당 몇 픽셀로 보이는지.
 ## 방향이 카메라 정면을 향해 거의 찌그러지면 화면 위쪽 드래그로 대체한다.
-func screen_axis_of(world_dir: Vector3) -> Dictionary:
-	var origin := part.global_position
+## 투영 기준점은 **부품이 쉬는 자리** 를 쓴다. 드래그 중에 부품이 움직이므로
+## 현재 위치를 기준으로 삼으면 되먹임이 생긴다.
+func home_world() -> Vector3:
+	var rig := part.get_parent() as Node3D
+	if rig == null:
+		return part.global_position
+	return rig.global_transform * part.home_transform.origin
+
+func screen_axis_of(world_dir: Vector3, from: Variant = null) -> Dictionary:
+	var origin: Vector3 = from if from is Vector3 else part.global_position
 	var a := ctx.camera.unproject_position(origin)
 	var b := ctx.camera.unproject_position(origin + world_dir * 0.25)
 	var v := b - a

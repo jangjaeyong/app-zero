@@ -254,12 +254,12 @@ def build():
     name_as(join(gl, "GearLock"), "GearLock")
 
     # ── 파워 셀 (앞에서 보이지만 왼쪽으로만 빠진다) ───────────────────
-    pc = [cyl(0.082, 0.34, (-0.14, -0.04, -0.21), m_amber,
+    pc = [cyl(0.082, 0.34, (-0.14, 0.02, -0.26), m_amber,
               rot=(0, math.radians(90), 0), verts=26)]
     for x in (-0.305, 0.025):
-        pc.append(cyl(0.094, 0.048, (x, -0.04, -0.21), m_steel,
+        pc.append(cyl(0.094, 0.048, (x, 0.02, -0.26), m_steel,
                       rot=(0, math.radians(90), 0), verts=26))
-    pc.append(box((0.30, 0.020, 0.030), (-0.14, -0.125, -0.21), m_brass, bevel=0.004))
+    pc.append(box((0.30, 0.020, 0.030), (-0.14, -0.065, -0.26), m_brass, bevel=0.004))
     name_as(join(pc, "PowerCell"), "PowerCell")
 
     # ── 냉각 튜브 ─────────────────────────────────────────────────────
