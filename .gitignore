@@ -1,7 +1,6 @@
 # Godot
 game/.godot/
 game/android/
-game/export_presets.cfg
 *.translation
 
 # 빌드 산출물
